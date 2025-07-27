@@ -17,3 +17,7 @@ class ResNet18(nn.Module):
 
     def forward(self, x):
         return self.resnet(x)
+    
+def create_model(num_classes):
+    model = ResNet18(num_classes=num_classes)
+    return model
