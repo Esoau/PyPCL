@@ -1,0 +1,12 @@
+# Data Generation Parameters
+data_generation:
+  cifar_path: './data'
+  output_dir: './data/03_primary' # Changed to a more structured path
+  k_candidates: 4
+
+# Training Hyperparameters
+training:
+  batch_size: 512
+  epochs: 300
+  learning_rate: 0.0001
+  num_classes: 10

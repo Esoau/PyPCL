@@ -1,0 +1,58 @@
+import os
+import torch
+import yaml
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from torchvision.datasets import CIFAR10
+
+# Import all our custom modules from src
+from src.data_utils import WeaklySupervisedDataset
+from src.models import create_model
+from src.losses import proden, LogURE
+from src.engine import train_algorithm
+
+# Load configuration
+with open('config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+
+data_config = config['data_generation']
+train_config = config['training']
+
+# --- Setup ---
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {DEVICE}")
+
+# Load pre-generated datasets
+k = data_config['k_candidates']
+C = train_config['num_classes']
+m = C - k
+
+pl_path = os.path.join(data_config['output_dir'], f'CIFAR10_PL_k={k}.pt')
+cl_path = os.path.join(data_config['output_dir'], f'CIFAR10_CL_m={m}.pt')
+
+pl_dataset = torch.load(pl_path)
+cl_dataset = torch.load(cl_path)
+
+pl_loader = DataLoader(pl_dataset, batch_size=train_config['batch_size'], shuffle=True)
+cl_loader = DataLoader(cl_dataset, batch_size=train_config['batch_size'], shuffle=True)
+
+# Create test loader
+cifar10_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True)
+test_dataset = WeaklySupervisedDataset(cifar10_test_raw.data, cifar10_test_raw.targets)
+test_loader = DataLoader(test_dataset, batch_size=train_config['batch_size'], shuffle=False)
+
+# --- Train PRODEN ---
+proden_model = create_model(train_config['num_classes'])
+proden_loss = proden()
+proden_optimizer = optim.Adam(proden_model.parameters(), lr=train_config['learning_rate'])
+best_proden = train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, train_config['epochs'], DEVICE)
+
+# --- Train LogURE ---
+logure_model = create_model(train_config['num_classes'])
+logure_loss = LogURE(num_classes=train_config['num_classes'])
+logure_optimizer = optim.Adam(logure_model.parameters(), lr=train_config['learning_rate'])
+best_logure = train_algorithm(logure_model, cl_loader, test_loader, logure_loss, logure_optimizer, train_config['epochs'], DEVICE)
+
+print("\n--- Final Results ---")
+print(f"Best Accuracy (PRODEN): {best_proden:.2f}%")
+print(f"Best Accuracy (LogURE): {best_logure:.2f}%")
