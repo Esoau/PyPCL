@@ -22,11 +22,23 @@ train_config = config['training']
 # --- Setup ---
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
-transform = transforms.Compose([
-    transforms.ToTensor(), # This scales images to [0, 1]
-    transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
-                         std=[0.2023, 0.1994, 0.2010]) # CIFAR-10 stats
+
+# 1. Define separate transforms for training and testing
+# ADD: Augmentations for the training set to improve model generalization
+train_transform = transforms.Compose([
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    # Use the exact normalization stats from libcll for a fair comparison
+    transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.2435, 0.2616])
 ])
+
+# ADD: No augmentations for the test set, only normalization
+test_transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.2435, 0.2616])
+])
+
 
 # Load pre-generated datasets
 k = data_config['k_candidates']
@@ -39,16 +51,18 @@ cl_path = os.path.join(data_config['output_dir'], f'CIFAR10_CL_m={m}.pt')
 pl_dataset = torch.load(pl_path)
 cl_dataset = torch.load(cl_path)
 
-# Re-wrap datasets with the transform
-pl_dataset = WeaklySupervisedDataset(pl_dataset.data, pl_dataset.targets, transform=transform)
-cl_dataset = WeaklySupervisedDataset(cl_dataset.data, cl_dataset.targets, transform=transform)
+# 2. Apply the correct transform to each dataset
+# CHANGE: Use the new train_transform for the training datasets
+pl_dataset = WeaklySupervisedDataset(pl_dataset.data, pl_dataset.targets, transform=train_transform)
+cl_dataset = WeaklySupervisedDataset(cl_dataset.data, cl_dataset.targets, transform=train_transform)
 
 pl_loader = DataLoader(pl_dataset, batch_size=train_config['batch_size'], shuffle=True)
 cl_loader = DataLoader(cl_dataset, batch_size=train_config['batch_size'], shuffle=True)
 
 # Create test loader WITH the transform
 cifar10_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True)
-test_dataset = WeaklySupervisedDataset(cifar10_test_raw.data, cifar10_test_raw.targets, transform=transform)
+# CHANGE: Use the new test_transform for the test dataset
+test_dataset = WeaklySupervisedDataset(cifar10_test_raw.data, cifar10_test_raw.targets, transform=test_transform)
 test_loader = DataLoader(test_dataset, batch_size=train_config['batch_size'], shuffle=False)
 
 
