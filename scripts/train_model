@@ -4,6 +4,7 @@ import yaml
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
+from torchvision import transforms
 
 # Import all our custom modules from src
 from src.data_utils import WeaklySupervisedDataset
@@ -21,6 +22,11 @@ train_config = config['training']
 # --- Setup ---
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
+transform = transforms.Compose([
+    transforms.ToTensor(), # This scales images to [0, 1]
+    transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
+                         std=[0.2023, 0.1994, 0.2010]) # CIFAR-10 stats
+])
 
 # Load pre-generated datasets
 k = data_config['k_candidates']
@@ -33,13 +39,19 @@ cl_path = os.path.join(data_config['output_dir'], f'CIFAR10_CL_m={m}.pt')
 pl_dataset = torch.load(pl_path)
 cl_dataset = torch.load(cl_path)
 
+# Re-wrap datasets with the transform
+pl_dataset = WeaklySupervisedDataset(pl_dataset.data, pl_dataset.targets, transform=transform)
+cl_dataset = WeaklySupervisedDataset(cl_dataset.data, cl_dataset.targets, transform=transform)
+
 pl_loader = DataLoader(pl_dataset, batch_size=train_config['batch_size'], shuffle=True)
 cl_loader = DataLoader(cl_dataset, batch_size=train_config['batch_size'], shuffle=True)
 
-# Create test loader
+# Create test loader WITH the transform
 cifar10_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True)
-test_dataset = WeaklySupervisedDataset(cifar10_test_raw.data, cifar10_test_raw.targets)
+test_dataset = WeaklySupervisedDataset(cifar10_test_raw.data, cifar10_test_raw.targets, transform=transform)
 test_loader = DataLoader(test_dataset, batch_size=train_config['batch_size'], shuffle=False)
+
+
 
 # --- Train PRODEN ---
 proden_model = create_model(train_config['num_classes'])

@@ -2,20 +2,24 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
+from PIL import Image
+    
 class WeaklySupervisedDataset(Dataset):
-    def __init__(self, data, targets):
+    def __init__(self, data, targets, transform=None): # Add transform
         self.data = data
         self.targets = targets
+        self.transform = transform
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         image = self.data[idx]
-        image_tensor = torch.from_numpy(image)
-        image_tensor = image_tensor.permute(2, 0, 1).float()
-        return image_tensor, self.targets[idx]
+        image = Image.fromarray(image)
+
+        if self.transform:
+            image = self.transform(image)
+        return image, self.targets[idx]
 
 class ComparisonDataGenerator:
     def __init__(self, ground_truth_dataset):
@@ -24,7 +28,6 @@ class ComparisonDataGenerator:
         self.all_labels = np.arange(self.num_classes)
 
     def generate_pl_dataset(self, k: int):
-        # ... (copy the exact code from your generate_pl_dataset method) ...
         if not 1 < k <= self.num_classes:
             raise ValueError(f"'k' must be between 2 and {self.num_classes}.")
         new_targets = []
@@ -42,7 +45,6 @@ class ComparisonDataGenerator:
 
 
     def generate_cl_dataset(self, m: int):
-        # ... (copy the exact code from your generate_cl_dataset method) ...
         if not 0 < m < self.num_classes:
             raise ValueError(f"'m' must be between 1 and {self.num_classes - 1}.")
         new_targets = []
