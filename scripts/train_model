@@ -52,8 +52,8 @@ m = C - k
 pl_path = os.path.join(data_config['output_dir'], f'CIFAR10_PL_k={k}.pt')
 cl_path = os.path.join(data_config['output_dir'], f'CIFAR10_CL_m={m}.pt')
 
-pl_dataset = torch.load(pl_path)
-cl_dataset = torch.load(cl_path)
+pl_dataset = torch.load(pl_path, weights_only=False)
+cl_dataset = torch.load(cl_path, weights_only=False)
 
 # 2. Apply the correct transform to each dataset
 # CHANGE: Use the new train_transform for the training datasets
