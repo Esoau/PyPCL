@@ -3,10 +3,11 @@ import sys
 import torch
 import yaml
 from torchvision.datasets import CIFAR10
-from src.data_utils import ComparisonDataGenerator 
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
+
+from src.data_utils import ComparisonDataGenerator 
 
 # Load configuration
 with open('config.yaml', 'r') as f:
