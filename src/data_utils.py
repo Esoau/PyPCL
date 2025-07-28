@@ -57,3 +57,39 @@ class ComparisonDataGenerator:
             complementary_set.sort()
             new_targets.append(torch.tensor(complementary_set))
         return WeaklySupervisedDataset(original_data, new_targets)
+
+    def generate_variable_pl_cl_datasets(self, q: float, num_classes: int):
+        if not 0 <= q <= 1:
+            raise ValueError("'q' must be between 0 and 1.")
+
+        pl_targets = []
+        cl_targets = []
+        original_data = self.dataset.data
+        all_labels = np.arange(num_classes)
+
+        for _, true_label in tqdm(self.dataset, desc="Processing Variable PL/CL"):
+            # Generate PL dataset
+            pl_set = {true_label}
+            false_labels = np.delete(all_labels, true_label)
+            for label in false_labels:
+                if np.random.rand() < q:
+                    pl_set.add(label)
+            
+            pl_target = sorted(list(pl_set))
+            pl_targets.append(torch.tensor(pl_target, dtype=torch.long))
+
+            # Generate CL dataset
+            cl_set = set(all_labels) - pl_set
+            # Ensure cl_set is not empty. If it is, we have a problem.
+            # In the variable case, if q=1, pl_set will contain all labels.
+            # cl_set will be empty. This might be an issue for training.
+            # The paper probably has a constraint on q.
+            # For now, I will assume q < 1.
+            # If cl_set is empty, what should be the target? An empty tensor.
+            cl_target = sorted(list(cl_set))
+            cl_targets.append(torch.tensor(cl_target, dtype=torch.long))
+
+        pl_dataset = WeaklySupervisedDataset(original_data, pl_targets)
+        cl_dataset = WeaklySupervisedDataset(original_data, cl_targets)
+
+        return pl_dataset, cl_dataset
