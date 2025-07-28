@@ -17,6 +17,21 @@ from src.models import create_model
 from src.losses import proden, LogURE
 from src.engine import train_algorithm
 
+# --- Custom Collate Function ---
+def collate_fn(batch):
+    images, labels = zip(*batch)
+    images = torch.stack(images, 0)
+    
+    # Get max length of label tensors in the batch
+    max_len = max(len(label) for label in labels)
+    
+    # Pad label tensors to the max length
+    padded_labels = torch.full((len(labels), max_len), -1, dtype=torch.long)
+    for i, label in enumerate(labels):
+        padded_labels[i, :len(label)] = label
+        
+    return images, padded_labels
+
 # --- Argument Parsing ---
 parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
 parser.add_argument('type', choices=['constant', 'variable'], help='Type of label generation.')
@@ -70,8 +85,8 @@ else:
 pl_dataset = WeaklySupervisedDataset(pl_dataset_raw.data, pl_dataset_raw.targets, transform=train_transform)
 cl_dataset = WeaklySupervisedDataset(cl_dataset_raw.data, cl_dataset_raw.targets, transform=train_transform)
 
-pl_loader = DataLoader(pl_dataset, batch_size=train_config['batch_size'], shuffle=True)
-cl_loader = DataLoader(cl_dataset, batch_size=train_config['batch_size'], shuffle=True)
+pl_loader = DataLoader(pl_dataset, batch_size=train_config['batch_size'], shuffle=True, collate_fn=collate_fn)
+cl_loader = DataLoader(cl_dataset, batch_size=train_config['batch_size'], shuffle=True, collate_fn=collate_fn)
 
 # Create test loader
 cifar10_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True)
