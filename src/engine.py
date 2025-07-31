@@ -2,7 +2,6 @@ import torch
 from tqdm import tqdm
 
 def evaluate_model(model, test_loader, device):
-    # ... (copy the exact evaluate_model function here) ...
     model.eval()
     correct = 0
     total = 0
@@ -18,8 +17,8 @@ def evaluate_model(model, test_loader, device):
 
 
 def train_algorithm(model, loader, test_loader, loss_fn, optimizer, epochs, device):
-    # ... (copy the exact train_algorithm function here) ...
     best_accuracy = 0.0
+    accuracies = []
     model.to(device)
     for epoch in range(epochs):
         model.train()
@@ -37,7 +36,8 @@ def train_algorithm(model, loader, test_loader, loss_fn, optimizer, epochs, devi
         avg_loss = total_loss / len(loader)
         current_accuracy = evaluate_model(model, test_loader, device)
         print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
+        accuracies.append(current_accuracy)
         if current_accuracy > best_accuracy:
             best_accuracy = current_accuracy
     print(f"Training finished. Best accuracy: {best_accuracy:.2f}%\n")
-    return best_accuracy
+    return accuracies

@@ -27,9 +27,9 @@ class proden(nn.Module):
         sample_loss = torch.sum(weights * individual_losses, dim=1)
         return sample_loss.mean()
 
-class LogURE(nn.Module):
+class MCL_Log(nn.Module):
     def __init__(self, num_classes):
-        super(LogURE, self).__init__()
+        super(MCL_Log, self).__init__()
         self.num_classes = num_classes
     def forward(self, outputs, complementary_labels):
         # Create a mask to ignore padded labels (-1)

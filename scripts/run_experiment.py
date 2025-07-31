@@ -6,39 +6,41 @@ import argparse
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
+import matplotlib.pyplot as plt
 from torchvision import transforms
 
+# return path to project root for import
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-# Import all our custom modules from src
+# import project modules
 from src.data_utils import ComparisonDataGenerator, WeaklySupervisedDataset
 from src.models import create_model
-from src.losses import proden, LogURE
+from src.losses import proden, MCL_Log
 from src.engine import train_algorithm
 
-# --- Custom Collate Function ---
+# collate function for dataloading
 def collate_fn(batch):
     images, labels = zip(*batch)
     images = torch.stack(images, 0)
     
-    # Get max length of label tensors in the batch
+    # get max length of labels
     max_len = max(len(label) for label in labels)
     
-    # Pad label tensors to the max length
+    # pad label tensors to max length
     padded_labels = torch.full((len(labels), max_len), -1, dtype=torch.long)
     for i, label in enumerate(labels):
         padded_labels[i, :len(label)] = label
         
     return images, padded_labels
 
-# --- Argument Parsing ---
+# argument parsing
 parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
 parser.add_argument('type', choices=['constant', 'variable'], help='Type of label generation.')
 parser.add_argument('value', type=float, help='Value for k (if type=constant) or q (if type=variable).')
 args = parser.parse_args()
 
-# --- Configuration and Setup ---
+# configuration
 with open('config.yaml', 'r') as f:
     config = yaml.safe_load(f)
 
@@ -48,7 +50,7 @@ train_config = config['training']
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
 
-# Define transforms
+# define transforms
 train_transform = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
@@ -60,12 +62,13 @@ test_transform = transforms.Compose([
     transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.2435, 0.2616])
 ])
 
-# --- Data Generation ---
+# get cifar10 dataset
 print("Loading original CIFAR-10 dataset...")
 cifar10_train_raw = CIFAR10(root=data_config['cifar_path'], train=True, download=True)
 generator = ComparisonDataGenerator(cifar10_train_raw)
 C = train_config['num_classes']
 
+# create CL and PL datasets based on type
 if args.type == 'constant':
     k = int(args.value)
     m = C - k
@@ -81,34 +84,52 @@ elif args.type == 'variable':
 else:
     raise ValueError("Invalid type specified. Choose 'constant' or 'variable'.")
 
-# --- Dataset and DataLoader Preparation ---
+# dataloading
 pl_dataset = WeaklySupervisedDataset(pl_dataset_raw.data, pl_dataset_raw.targets, transform=train_transform)
 cl_dataset = WeaklySupervisedDataset(cl_dataset_raw.data, cl_dataset_raw.targets, transform=train_transform)
 
 pl_loader = DataLoader(pl_dataset, batch_size=train_config['batch_size'], shuffle=True, collate_fn=collate_fn)
 cl_loader = DataLoader(cl_dataset, batch_size=train_config['batch_size'], shuffle=True, collate_fn=collate_fn)
 
-# Create test loader
+# create test loader
 cifar10_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True)
 test_dataset = WeaklySupervisedDataset(cifar10_test_raw.data, cifar10_test_raw.targets, transform=test_transform)
 test_loader = DataLoader(test_dataset, batch_size=train_config['batch_size'], shuffle=False)
 
-# --- Train PRODEN ---
-print("\n--- Training PRODEN (PL) ---")
+# train proden
+print("\nTraining PRODEN (PL)")
 proden_model = create_model(train_config['num_classes'])
 proden_loss = proden()
 proden_optimizer = optim.Adam(proden_model.parameters(), lr=train_config['learning_rate'])
-best_proden = train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, train_config['epochs'], DEVICE)
+proden_accuracies = train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, train_config['epochs'], DEVICE)
 
-# --- Train LogURE ---
-print("\n--- Training LogURE (CL) ---")
-logure_model = create_model(train_config['num_classes'])
-logure_loss = LogURE(num_classes=train_config['num_classes'])
-logure_optimizer = optim.Adam(logure_model.parameters(), lr=train_config['learning_rate'])
-best_logure = train_algorithm(logure_model, cl_loader, test_loader, logure_loss, logure_optimizer, train_config['epochs'], DEVICE)
+# train MCL-LOG
+print("\nTraining MCL-LOG (CL)")
+mcl_log_model = create_model(train_config['num_classes'])
+mcl_log_loss = MCL_Log(num_classes=train_config['num_classes'])
+mcl_log_optimizer = optim.Adam(mcl_log_model.parameters(), lr=train_config['learning_rate'])
+mcl_log_accuracies = train_algorithm(mcl_log_model, cl_loader, test_loader, mcl_log_loss, mcl_log_optimizer, train_config['epochs'], DEVICE)
 
-# --- Final Results ---
+# best accuracy results
 print("\n--- Final Results ---")
+best_proden = max(proden_accuracies)
+best_mcl_log = max(mcl_log_accuracies)
 print(f"Best Accuracy (PRODEN): {best_proden:.2f}%")
-print(f"Best Accuracy (LogURE): {best_logure:.2f}%")
+print(f"Best Accuracy (MCL-LOG): {best_mcl_log:.2f}%")
+
+# accuracy plot
+epochs = range(1, train_config['epochs'] + 1)
+plt.figure(figsize=(10, 6))
+plt.plot(epochs, proden_accuracies, 'o-', label='PRODEN Test Accuracy')
+plt.plot(epochs, mcl_log_accuracies, 'x-', label='MCL-LOG Test Accuracy')
+if args.type == 'constant':
+    plt.title(f'Test Accuracy vs. Epochs (Constant k={int(args.value)})')
+else:
+    plt.title(f'Test Accuracy vs. Epochs (Variable q={args.value})')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy (%)')
+plt.legend()
+plt.grid(True)
+plt.show()
+
 print("Done.")
