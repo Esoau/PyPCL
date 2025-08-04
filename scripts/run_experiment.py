@@ -16,7 +16,8 @@ sys.path.insert(0, project_root)
 # import project modules
 from src.data_utils import ComparisonDataGenerator, WeaklySupervisedDataset
 from src.models import create_model
-from src.losses import proden, MCL_Log
+from src.proden_loss import proden
+from src.mcl_log_loss import MCL_Log
 from src.engine import train_algorithm
 
 # collate function for dataloading

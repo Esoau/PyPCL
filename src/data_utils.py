@@ -3,6 +3,9 @@ import numpy as np
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from PIL import Image
+from torchvision import transforms
+from src.pico.randaugment import RandomAugment
+
     
 class WeaklySupervisedDataset(Dataset):
     def __init__(self, data, targets, transform=None): # Add transform
@@ -26,6 +29,8 @@ class ComparisonDataGenerator:
         self.dataset = ground_truth_dataset
         self.num_classes = len(self.dataset.classes)
         self.all_labels = np.arange(self.num_classes)
+        self.original_data = self.dataset.data
+        self.original_targets = torch.tensor(self.dataset.targets)
 
     def generate_pl_dataset(self, k: int):
         if not 1 < k <= self.num_classes:
@@ -93,3 +98,46 @@ class ComparisonDataGenerator:
         cl_dataset = WeaklySupervisedDataset(original_data, cl_targets)
 
         return pl_dataset, cl_dataset
+
+class PicoDataset(Dataset):
+    def __init__(self, pl_dataset_raw, original_labels):
+        self.images = pl_dataset_raw.data
+        self.given_label_matrix_sparse = pl_dataset_raw.targets
+        self.true_labels = original_labels
+        
+        # Create full partial label matrix
+        self.num_classes = len(set(original_labels.numpy()))
+        self.given_label_matrix = self._create_full_matrix(self.given_label_matrix_sparse, self.num_classes)
+        
+        self.weak_transform = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.2435, 0.2616])
+        ])
+        self.strong_transform = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
+            transforms.RandomHorizontalFlip(),
+            RandomAugment(n=2, m=10),
+            transforms.ToTensor(),
+            transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.2435, 0.2616])
+        ])
+
+    def _create_full_matrix(self, sparse_labels, num_classes):
+        full_matrix = torch.zeros(len(sparse_labels), num_classes)
+        for i, p_label in enumerate(sparse_labels):
+            full_matrix[i, p_label] = 1
+        return full_matrix
+
+    def __len__(self):
+        return len(self.true_labels)
+        
+    def __getitem__(self, index):
+        image = self.images[index]
+        each_image_w = self.weak_transform(image)
+        each_image_s = self.strong_transform(image)
+        each_label = self.given_label_matrix[index]
+        each_true_label = self.true_labels[index]
+        return each_image_w, each_image_s, each_label, each_true_label, index
