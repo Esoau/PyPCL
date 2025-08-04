@@ -5,6 +5,7 @@ from tqdm import tqdm
 from PIL import Image
 from torchvision import transforms
 from src.pico.randaugment import RandomAugment
+import copy
 
     
 class WeaklySupervisedDataset(Dataset):
@@ -141,4 +142,42 @@ class PicoDataset(Dataset):
         each_image_s = self.strong_transform(image)
         each_label = self.given_label_matrix[index]
         each_true_label = self.true_labels[index]
+        return each_image_w, each_image_s, each_label, each_true_label, index
+
+class SoLarDataset(Dataset):
+    def __init__(self, pl_dataset_raw, original_labels):
+        self.images = pl_dataset_raw.data
+        self.given_label_matrix_sparse = pl_dataset_raw.targets
+        self.true_labels = original_labels
+        
+        # Create full partial label matrix
+        self.num_classes = len(set(original_labels.numpy()))
+        self.given_label_matrix = self._create_full_matrix(self.given_label_matrix_sparse, self.num_classes)
+        
+        self.weak_transform = transforms.Compose([
+                                        transforms.ToPILImage(),
+                                        transforms.RandomHorizontalFlip(),
+                                        transforms.RandomCrop(32, padding=4),
+                                        transforms.ToTensor(), 
+                                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))])
+        self.strong_transform = copy.deepcopy(self.weak_transform)
+        self.strong_transform.transforms.insert(1, RandomAugment(3,5))
+
+
+    def _create_full_matrix(self, sparse_labels, num_classes):
+        full_matrix = torch.zeros(len(sparse_labels), num_classes)
+        for i, p_label in enumerate(sparse_labels):
+            full_matrix[i, p_label] = 1
+        return full_matrix
+
+    def __len__(self):
+        return len(self.true_labels)
+        
+    def __getitem__(self, index):
+        image = self.images[index]
+        each_image_w = self.weak_transform(image)
+        each_image_s = self.strong_transform(image)
+        each_label = self.given_label_matrix[index]
+        each_true_label = self.true_labels[index]
+        
         return each_image_w, each_image_s, each_label, each_true_label, index

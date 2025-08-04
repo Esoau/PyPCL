@@ -8,20 +8,22 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 import matplotlib.pyplot as plt
 from torchvision import transforms
+import torch.nn.functional as F
 
 # Add project root to Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 # Import project modules
-from src.data_utils import ComparisonDataGenerator, WeaklySupervisedDataset, PicoDataset
+from src.data_utils import ComparisonDataGenerator, WeaklySupervisedDataset, PicoDataset, SoLarDataset
 from src.models import create_model
 from src.proden_loss import proden
 from src.mcl_log_loss import MCL_Log
-from src.engine import train_algorithm, evaluate_model
-from src.pico.model import PiCOModel, train_pico_epoch
+from src.engine import train_algorithm, evaluate_model, train_pico_epoch, train_solar_epoch
+from src.pico.model import PiCOModel
 from src.pico.utils_loss import PartialLoss, SupConLoss
-from src.collate import collate_fn, pico_collate_fn
+from src.solar.utils_loss import partial_loss as solar_partial_loss
+from src.collate import collate_fn, pico_collate_fn, solar_collate_fn
 
 # Argument parsing
 parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
@@ -36,6 +38,7 @@ with open('config.yaml', 'r') as f:
 data_config = config['data_generation']
 train_config = config['training']
 pico_config = config['pico']
+solar_config = config['solar']
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -137,16 +140,52 @@ for epoch in range(train_config['epochs']):
     print(f"Epoch [{epoch+1}/{train_config['epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
     pico_accuracies.append(current_accuracy)
 
+# Train SoLar
+print("\nTraining SoLar (PL)")
+solar_args = {
+    'num_class': train_config['num_classes'],
+    'epochs': train_config['epochs'],
+    'warmup_epoch': solar_config['warmup_epoch'],
+    'rho_range': solar_config['rho_range'],
+    'lamd': solar_config['lamd'],
+    'eta': solar_config['eta'],
+    'tau': solar_config['tau']
+}
+solar_model = create_model(train_config['num_classes']).to(DEVICE)
+solar_train_dataset = SoLarDataset(pl_dataset_raw, generator.original_targets)
+solar_loader = DataLoader(
+    solar_train_dataset,
+    batch_size=train_config['batch_size'],
+    shuffle=True,
+    drop_last=True,
+    collate_fn=solar_collate_fn
+)
+
+solar_loss_fn = solar_partial_loss(solar_train_dataset.given_label_matrix)
+solar_optimizer = optim.SGD(solar_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-3)
+queue = torch.zeros(64 * train_config['batch_size'], train_config['num_classes']).cuda()
+emp_dist = (torch.ones(train_config['num_classes']) / train_config['num_classes']).unsqueeze(1)
+
+
+solar_accuracies = []
+for epoch in range(train_config['epochs']):
+    avg_loss = train_solar_epoch(solar_args, solar_model, solar_loader, solar_loss_fn, solar_optimizer, epoch, DEVICE, queue, emp_dist)
+    current_accuracy = evaluate_model(solar_model, test_loader, DEVICE)
+    print(f"Epoch [{epoch+1}/{train_config['epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
+    solar_accuracies.append(current_accuracy)
+
 
 # Final results
 print("\n--- Final Results ---")
 best_proden = max(proden_accuracies) if proden_accuracies else 0
 best_mcl_log = max(mcl_log_accuracies) if mcl_log_accuracies else 0
 best_pico = max(pico_accuracies) if pico_accuracies else 0
+best_solar = max(solar_accuracies) if solar_accuracies else 0
 
 print(f"Best Accuracy (PRODEN): {best_proden:.2f}%")
 print(f"Best Accuracy (MCL-LOG): {best_mcl_log:.2f}%")
 print(f"Best Accuracy (PiCO): {best_pico:.2f}%")
+print(f"Best Accuracy (SoLar): {best_solar:.2f}%")
 
 
 # Accuracy plot
@@ -155,6 +194,7 @@ plt.figure(figsize=(10, 6))
 plt.plot(epochs, proden_accuracies, 'o-', label='PRODEN Test Accuracy')
 plt.plot(epochs, mcl_log_accuracies, 'x-', label='MCL-LOG Test Accuracy')
 plt.plot(epochs, pico_accuracies, 's-', label='PiCO Test Accuracy')
+plt.plot(epochs, solar_accuracies, '^-', label='SoLar Test Accuracy')
 
 if args.type == 'constant':
     plt.title(f'Test Accuracy vs. Epochs (Constant k={int(args.value)})')
@@ -164,4 +204,16 @@ plt.xlabel('Epochs')
 plt.ylabel('Accuracy (%)')
 plt.legend()
 plt.grid(True)
+
+# Create plots directory and save the plot
+plots_dir = os.path.join(project_root, 'plots')
+os.makedirs(plots_dir, exist_ok=True)
+if args.type == 'constant':
+    filename = f'accuracy_plot_k_{int(args.value)}.png'
+else:
+    filename = f'accuracy_plot_q_{args.value}.png'
+save_path = os.path.join(plots_dir, filename)
+plt.savefig(save_path)
+print(f"Plot saved to {save_path}")
+
 plt.show()
