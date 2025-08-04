@@ -21,7 +21,7 @@ pico:
   conf_ema_range: [0.95, 0.8]
 
 solar:
-  warmup_epoch: 1
+  warmup_epoch: 20
   rho_range: [0.2, 0.6]
   lamd: 3
   eta: 0.9
