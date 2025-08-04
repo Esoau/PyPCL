@@ -4,7 +4,7 @@ import torchvision.models as models
 class ResNet18(nn.Module):
     def __init__(self, num_classes=10):
         super().__init__()
-        self.resnet = models.resnet18(num_classes=num_classes)
+        self.resnet = models.resnet18(num_classes=num_classes, weights=None)
         
         # modify the first convolutional layer for small images
         self.resnet.conv1 = nn.Conv2d(
@@ -19,5 +19,5 @@ class ResNet18(nn.Module):
         return self.resnet(x)
     
 def create_model(num_classes):
-    model = ResNet18(num_classes=num_classes, pretrained=False)
+    model = ResNet18(num_classes=num_classes)
     return model

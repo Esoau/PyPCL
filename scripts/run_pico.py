@@ -3,59 +3,20 @@ import sys
 import torch
 import yaml
 import argparse
-import random
-import numpy as np
 import torch.optim as optim
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.models as models
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 from torchvision import transforms
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from PIL import Image
-import PIL.ImageOps, PIL.ImageEnhance, PIL.ImageDraw
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 from src.data_utils import ComparisonDataGenerator, PicoDataset
-from src.engine import evaluate_model
-from src.pico.randaugment import RandomAugment
+from src.engine import evaluate_model, train_pico_epoch
 from src.pico.model import PiCOModel
-from src.pico.resnet import SupConResNet
 from src.pico.utils_loss import PartialLoss, SupConLoss
-
-
-def train_pico_epoch(pico_args, model, loader, loss_fn, loss_cont_fn, optimizer, epoch, device):
-    model.train()
-    total_loss = 0
-    start_upd_prot = epoch >= pico_args['prot_start']
-    
-    progress_bar = tqdm(loader, desc=f"PiCO Epoch {epoch + 1}/{pico_args['epochs']}")
-    for (images_w, images_s, partial_Y, true_labels, index) in progress_bar:
-        images_w, images_s, partial_Y, index = images_w.to(device), images_s.to(device), partial_Y.to(device), index.to(device)
-        
-        cls_out, features, pseudo_target_cont, score_prot = model(images_w, images_s, partial_Y, pico_args)
-        batch_size = cls_out.shape[0]
-
-        if start_upd_prot:
-            loss_fn.confidence_update(temp_un_conf=score_prot, batch_index=index, batchY=partial_Y)
-        
-        mask = torch.eq(pseudo_target_cont[:batch_size].unsqueeze(1), pseudo_target_cont.unsqueeze(0)).float() if start_upd_prot else None
-
-        loss_cls = loss_fn(cls_out, index)
-        loss_cont = loss_cont_fn(features=features, mask=mask, batch_size=batch_size)
-        loss = loss_cls + pico_args['loss_weight'] * loss_cont
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        total_loss += loss.item()
-        progress_bar.set_postfix(loss=total_loss / (progress_bar.n + 1))
-    return total_loss / len(loader)
 
 parser = argparse.ArgumentParser(description='Run PiCO experiment.')
 parser.add_argument('type', choices=['constant', 'variable'], help='Type of label generation.')
