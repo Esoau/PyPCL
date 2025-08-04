@@ -8,7 +8,6 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 import matplotlib.pyplot as plt
 from torchvision import transforms
-from tqdm import tqdm
 
 # Add project root to Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -20,53 +19,9 @@ from src.models import create_model
 from src.proden_loss import proden
 from src.mcl_log_loss import MCL_Log
 from src.engine import train_algorithm, evaluate_model
-from src.pico.model import PiCOModel
+from src.pico.model import PiCOModel, train_pico_epoch
 from src.pico.utils_loss import PartialLoss, SupConLoss
-
-# Collate function for dataloading
-def collate_fn(batch):
-    images, labels = zip(*batch)
-    images = torch.stack(images, 0)
-    
-    # Get max length of labels
-    max_len = max(len(label) for label in labels)
-    
-    # Pad label tensors to max length
-    padded_labels = torch.full((len(labels), max_len), -1, dtype=torch.long)
-    for i, label in enumerate(labels):
-        padded_labels[i, :len(label)] = label
-        
-    return images, padded_labels
-
-def train_pico_epoch(pico_args, model, loader, loss_fn, loss_cont_fn, optimizer, epoch, device):
-    model.train()
-    total_loss = 0
-    start_upd_prot = epoch >= pico_args['prot_start']
-    
-    progress_bar = tqdm(loader, desc=f"PiCO Epoch {epoch + 1}/{pico_args['epochs']}")
-    for (images_w, images_s, partial_Y, true_labels, index) in progress_bar:
-        images_w, images_s, partial_Y, index = images_w.to(device), images_s.to(device), partial_Y.to(device), index.to(device)
-        
-        cls_out, features, pseudo_target_cont, score_prot = model(images_w, images_s, partial_Y, pico_args)
-        batch_size = cls_out.shape[0]
-
-        if start_upd_prot:
-            loss_fn.confidence_update(temp_un_conf=score_prot, batch_index=index, batchY=partial_Y)
-        
-        mask = torch.eq(pseudo_target_cont[:batch_size].unsqueeze(1), pseudo_target_cont.unsqueeze(0)).float() if start_upd_prot else None
-
-        loss_cls = loss_fn(cls_out, index)
-        loss_cont = loss_cont_fn(features=features, mask=mask, batch_size=batch_size)
-        loss = loss_cls + pico_args['loss_weight'] * loss_cont
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        total_loss += loss.item()
-        progress_bar.set_postfix(loss=total_loss / (progress_bar.n + 1))
-    return total_loss / len(loader)
-
+from src.collate import collate_fn, pico_collate_fn
 
 # Argument parsing
 parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
@@ -160,7 +115,13 @@ pico_args = {
 }
 pico_model = PiCOModel(pico_args).to(DEVICE)
 pico_train_dataset = PicoDataset(pl_dataset_raw, generator.original_targets)
-pico_loader = DataLoader(pico_train_dataset, batch_size=train_config['batch_size'], shuffle=True, drop_last=True)
+pico_loader = DataLoader(
+    pico_train_dataset,
+    batch_size=train_config['batch_size'],
+    shuffle=True,
+    drop_last=True,
+    collate_fn=pico_collate_fn
+)
 
 initial_confidence = torch.ones(len(pico_train_dataset), pico_args['num_class']) / pico_args['num_class']
 pico_cls_loss = PartialLoss(initial_confidence)

@@ -100,6 +100,7 @@ class ComparisonDataGenerator:
         return pl_dataset, cl_dataset
 
 class PicoDataset(Dataset):
+    
     def __init__(self, pl_dataset_raw, original_labels):
         self.images = pl_dataset_raw.data
         self.given_label_matrix_sparse = pl_dataset_raw.targets
