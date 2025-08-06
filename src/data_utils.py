@@ -107,9 +107,7 @@ class PicoDataset(Dataset):
         self.given_label_matrix_sparse = pl_dataset_raw.targets
         self.true_labels = original_labels
         
-        # Create full partial label matrix
         self.num_classes = len(set(original_labels.numpy()))
-        self.given_label_matrix = self._create_full_matrix(self.given_label_matrix_sparse, self.num_classes)
         
         self.weak_transform = transforms.Compose([
             transforms.ToPILImage(),
@@ -127,12 +125,6 @@ class PicoDataset(Dataset):
             transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.2435, 0.2616])
         ])
 
-    def _create_full_matrix(self, sparse_labels, num_classes):
-        full_matrix = torch.zeros(len(sparse_labels), num_classes)
-        for i, p_label in enumerate(sparse_labels):
-            full_matrix[i, p_label] = 1
-        return full_matrix
-
     def __len__(self):
         return len(self.true_labels)
         
@@ -140,7 +132,12 @@ class PicoDataset(Dataset):
         image = self.images[index]
         each_image_w = self.weak_transform(image)
         each_image_s = self.strong_transform(image)
-        each_label = self.given_label_matrix[index]
+        
+        # Generate the one-hot encoded partial label vector on-the-fly
+        p_label = self.given_label_matrix_sparse[index]
+        each_label = torch.zeros(self.num_classes, dtype=torch.float)
+        each_label[p_label] = 1.0
+        
         each_true_label = self.true_labels[index]
         return each_image_w, each_image_s, each_label, each_true_label, index
 
@@ -150,9 +147,7 @@ class SoLarDataset(Dataset):
         self.given_label_matrix_sparse = pl_dataset_raw.targets
         self.true_labels = original_labels
         
-        # Create full partial label matrix
         self.num_classes = len(set(original_labels.numpy()))
-        self.given_label_matrix = self._create_full_matrix(self.given_label_matrix_sparse, self.num_classes)
         
         self.weak_transform = transforms.Compose([
                                         transforms.ToPILImage(),
@@ -163,13 +158,6 @@ class SoLarDataset(Dataset):
         self.strong_transform = copy.deepcopy(self.weak_transform)
         self.strong_transform.transforms.insert(1, RandomAugment(3,5))
 
-
-    def _create_full_matrix(self, sparse_labels, num_classes):
-        full_matrix = torch.zeros(len(sparse_labels), num_classes)
-        for i, p_label in enumerate(sparse_labels):
-            full_matrix[i, p_label] = 1
-        return full_matrix
-
     def __len__(self):
         return len(self.true_labels)
         
@@ -177,7 +165,12 @@ class SoLarDataset(Dataset):
         image = self.images[index]
         each_image_w = self.weak_transform(image)
         each_image_s = self.strong_transform(image)
-        each_label = self.given_label_matrix[index]
+
+        # Generate the one-hot encoded partial label vector on-the-fly
+        p_label = self.given_label_matrix_sparse[index]
+        each_label = torch.zeros(self.num_classes, dtype=torch.float)
+        each_label[p_label] = 1.0
+        
         each_true_label = self.true_labels[index]
         
         return each_image_w, each_image_s, each_label, each_true_label, index

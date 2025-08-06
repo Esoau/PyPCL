@@ -130,7 +130,7 @@ initial_confidence = torch.ones(len(pico_train_dataset), pico_args['num_class'])
 pico_cls_loss = PartialLoss(initial_confidence)
 pico_cont_loss = SupConLoss()
 
-pico_optimizer = optim.SGD(pico_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
+pico_optimizer = optim.adam(pico_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
 
 pico_accuracies = []
 for epoch in range(train_config['epochs']):
@@ -161,7 +161,15 @@ solar_loader = DataLoader(
     collate_fn=solar_collate_fn
 )
 
-solar_loss_fn = solar_partial_loss(solar_train_dataset.given_label_matrix)
+# Manually create the full label matrix just for the SoLar loss function
+print("Creating full label matrix for SoLar loss initialization...")
+num_classes = train_config['num_classes']
+solar_given_label_matrix = torch.zeros(len(solar_train_dataset), num_classes)
+for i, p_label in enumerate(solar_train_dataset.given_label_matrix_sparse):
+    solar_given_label_matrix[i, p_label] = 1.0
+
+# Pass this newly created matrix to the loss function
+solar_loss_fn = solar_partial_loss(solar_given_label_matrix)
 solar_optimizer = optim.SGD(solar_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-3)
 queue = torch.zeros(64 * train_config['batch_size'], train_config['num_classes']).cuda()
 emp_dist = (torch.ones(train_config['num_classes']) / train_config['num_classes']).unsqueeze(1)
