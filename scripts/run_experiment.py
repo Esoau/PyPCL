@@ -130,7 +130,7 @@ initial_confidence = torch.ones(len(pico_train_dataset), pico_args['num_class'])
 pico_cls_loss = PartialLoss(initial_confidence)
 pico_cont_loss = SupConLoss()
 
-pico_optimizer = optim.adam(pico_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
+pico_optimizer = optim.SGD(pico_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
 
 pico_accuracies = []
 for epoch in range(train_config['epochs']):
