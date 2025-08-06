@@ -9,6 +9,7 @@ from torchvision.datasets import CIFAR10
 import matplotlib.pyplot as plt
 from torchvision import transforms
 import torch.nn.functional as F
+import psutil
 
 # Add project root to Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -24,6 +25,21 @@ from src.pico.model import PiCOModel
 from src.pico.utils_loss import PartialLoss, SupConLoss
 from src.solar.utils_loss import partial_loss as solar_partial_loss
 from src.collate import collate_fn, pico_collate_fn, solar_collate_fn
+
+# Helper function for memory usage
+def print_memory_usage(step_name=""):
+    """Prints current CPU and GPU memory usage."""
+    process = psutil.Process(os.getpid())
+    cpu_mem = process.memory_info().rss / (1024 * 1024)  # in MB
+    print(f"\n--- Memory Usage after: {step_name} ---")
+    print(f"CPU Memory Usage: {cpu_mem:.2f} MB")
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        gpu_mem_alloc = torch.cuda.memory_allocated() / (1024 * 1024)  # in MB
+        gpu_mem_cached = torch.cuda.memory_reserved() / (1024 * 1024)  # in MB
+        print(f"GPU Memory Allocated: {gpu_mem_alloc:.2f} MB")
+        print(f"GPU Memory Reserved: {gpu_mem_cached:.2f} MB")
+    print("-------------------------------------------------")
 
 # Argument parsing
 parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
@@ -89,6 +105,8 @@ cl_loader = DataLoader(cl_dataset, batch_size=train_config['batch_size'], shuffl
 cifar10_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True, transform=test_transform)
 test_loader = DataLoader(cifar10_test_raw, batch_size=train_config['batch_size'], shuffle=False)
 
+print_memory_usage("Data Loading and Preparation")
+
 # Train PRODEN
 print("\nTraining PRODEN (PL)")
 proden_model = create_model(train_config['num_classes'])
@@ -96,12 +114,16 @@ proden_loss = proden()
 proden_optimizer = optim.Adam(proden_model.parameters(), lr=train_config['learning_rate'])
 proden_accuracies = train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, train_config['epochs'], DEVICE)
 
+print_memory_usage("PRODEN Training")
+
 # Train MCL-LOG
 print("\nTraining MCL-LOG (CL)")
 mcl_log_model = create_model(train_config['num_classes'])
 mcl_log_loss = MCL_Log(num_classes=train_config['num_classes'])
 mcl_log_optimizer = optim.Adam(mcl_log_model.parameters(), lr=train_config['learning_rate'])
 mcl_log_accuracies = train_algorithm(mcl_log_model, cl_loader, test_loader, mcl_log_loss, mcl_log_optimizer, train_config['epochs'], DEVICE)
+
+print_memory_usage("MCL-LOG Training")
 
 # Train PiCO
 print("\nTraining PiCO (PL)")
@@ -132,6 +154,8 @@ pico_cont_loss = SupConLoss()
 
 pico_optimizer = optim.SGD(pico_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
 
+print_memory_usage("PiCO Preparation")
+
 pico_accuracies = []
 for epoch in range(train_config['epochs']):
     pico_cls_loss.set_conf_ema_m(epoch, pico_args)
@@ -139,6 +163,8 @@ for epoch in range(train_config['epochs']):
     current_accuracy = evaluate_model(pico_model, test_loader, DEVICE)
     print(f"Epoch [{epoch+1}/{train_config['epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
     pico_accuracies.append(current_accuracy)
+
+print_memory_usage("PiCO Training")
 
 # Train SoLar
 print("\nTraining SoLar (PL)")
@@ -174,6 +200,7 @@ solar_optimizer = optim.SGD(solar_model.parameters(), lr=train_config['learning_
 queue = torch.zeros(64 * train_config['batch_size'], train_config['num_classes']).cuda()
 emp_dist = (torch.ones(train_config['num_classes']) / train_config['num_classes']).unsqueeze(1)
 
+print_memory_usage("SoLar Preparation")
 
 solar_accuracies = []
 for epoch in range(train_config['epochs']):
@@ -182,6 +209,7 @@ for epoch in range(train_config['epochs']):
     print(f"Epoch [{epoch+1}/{train_config['epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
     solar_accuracies.append(current_accuracy)
 
+print_memory_usage("SoLar Training")
 
 # Final results
 print("\n--- Final Results ---")
@@ -223,5 +251,7 @@ else:
 save_path = os.path.join(plots_dir, filename)
 plt.savefig(save_path)
 print(f"Plot saved to {save_path}")
+
+print_memory_usage("End of Script")
 
 plt.show()
