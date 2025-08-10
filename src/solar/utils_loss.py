@@ -8,7 +8,6 @@ class partial_loss(nn.Module):
         print('Calculating uniform targets...')
         tempY = train_givenY.sum(dim=1).unsqueeze(1).repeat(1, train_givenY.shape[1])
         confidence = train_givenY.float()/tempY
-        confidence = confidence.cuda()
         # calculate confidence
         self.confidence = confidence
 

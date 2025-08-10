@@ -19,7 +19,7 @@ sys.path.insert(0, project_root)
 from src.data_utils import ComparisonDataGenerator, WeaklySupervisedDataset, PicoDataset, SoLarDataset
 from src.models import create_model
 from src.proden_loss import proden
-from src.mcl_log_loss import MCL_Log
+from src.mcl_losses import MCL_LOG, MCL_MAE, MCL_EXP
 from src.engine import train_algorithm, evaluate_model, train_pico_epoch, train_solar_epoch
 from src.pico.model import PiCOModel
 from src.pico.utils_loss import PartialLoss, SupConLoss
@@ -119,11 +119,30 @@ print_memory_usage("PRODEN Training")
 # Train MCL-LOG
 print("\nTraining MCL-LOG (CL)")
 mcl_log_model = create_model(train_config['num_classes'])
-mcl_log_loss = MCL_Log(num_classes=train_config['num_classes'])
+mcl_log_loss = MCL_LOG(num_classes=train_config['num_classes'])
 mcl_log_optimizer = optim.Adam(mcl_log_model.parameters(), lr=train_config['learning_rate'])
 mcl_log_accuracies = train_algorithm(mcl_log_model, cl_loader, test_loader, mcl_log_loss, mcl_log_optimizer, train_config['epochs'], DEVICE)
 
 print_memory_usage("MCL-LOG Training")
+
+# Train MCL-MAE
+print("\nTraining MCL-MAE (CL)")
+mcl_mae_model = create_model(train_config['num_classes'])
+mcl_mae_loss = MCL_MAE(num_classes=train_config['num_classes'])
+mcl_mae_optimizer = optim.Adam(mcl_mae_model.parameters(), lr=train_config['learning_rate'])
+mcl_mae_accuracies = train_algorithm(mcl_mae_model, cl_loader, test_loader, mcl_mae_loss, mcl_mae_optimizer, train_config['epochs'], DEVICE)
+
+print_memory_usage("MCL-MAE Training")
+
+# Train MCL-EXP
+print("\nTraining MCL-EXP (CL)")
+mcl_exp_model = create_model(train_config['num_classes'])
+mcl_exp_loss = MCL_EXP(num_classes=train_config['num_classes'])
+mcl_exp_optimizer = optim.Adam(mcl_exp_model.parameters(), lr=train_config['learning_rate'])
+mcl_exp_accuracies = train_algorithm(mcl_exp_model, cl_loader, test_loader, mcl_exp_loss, mcl_exp_optimizer, train_config['epochs'], DEVICE)
+
+print_memory_usage("MCL-EXP Training")
+
 
 # Train PiCO
 print("\nTraining PiCO (PL)")
@@ -216,20 +235,26 @@ print_memory_usage("SoLar Training")
 print("\n--- Final Results ---")
 best_proden = max(proden_accuracies) if proden_accuracies else 0
 best_mcl_log = max(mcl_log_accuracies) if mcl_log_accuracies else 0
+best_mcl_mae = max(mcl_mae_accuracies) if mcl_mae_accuracies else 0
+best_mcl_exp = max(mcl_exp_accuracies) if mcl_exp_accuracies else 0
 best_pico = max(pico_accuracies) if pico_accuracies else 0
 best_solar = max(solar_accuracies) if solar_accuracies else 0
 
 print(f"Best Accuracy (PRODEN): {best_proden:.2f}%")
 print(f"Best Accuracy (MCL-LOG): {best_mcl_log:.2f}%")
+print(f"Best Accuracy (MCL-MAE): {best_mcl_mae:.2f}%")
+print(f"Best Accuracy (MCL-EXP): {best_mcl_exp:.2f}%")
 print(f"Best Accuracy (PiCO): {best_pico:.2f}%")
 print(f"Best Accuracy (SoLar): {best_solar:.2f}%")
 
 
 # Accuracy plot
 epochs = range(1, train_config['epochs'] + 1)
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(12, 7))
 plt.plot(epochs, proden_accuracies, 'o-', label='PRODEN Test Accuracy')
 plt.plot(epochs, mcl_log_accuracies, 'x-', label='MCL-LOG Test Accuracy')
+plt.plot(epochs, mcl_mae_accuracies, '*-', label='MCL-MAE Test Accuracy')
+plt.plot(epochs, mcl_exp_accuracies, '+-', label='MCL-EXP Test Accuracy')
 plt.plot(epochs, pico_accuracies, 's-', label='PiCO Test Accuracy')
 plt.plot(epochs, solar_accuracies, '^-', label='SoLar Test Accuracy')
 
