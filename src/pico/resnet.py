@@ -103,7 +103,8 @@ class ResNet(nn.Module):
         layers = []
         for i in range(num_blocks):
             stride = strides[i]
-            layers.append(block(self.in_planes, planes, stride))
+            is_last = (i == num_blocks - 1)  # Last block in the layer
+            layers.append(block(self.in_planes, planes, stride, is_last))
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 

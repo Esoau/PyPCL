@@ -4,3 +4,5 @@ PyYAML
 tqdm
 numpy
 Pillow
+psutil
+matplotlib

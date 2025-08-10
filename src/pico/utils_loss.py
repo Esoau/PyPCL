@@ -5,7 +5,7 @@ import torch.nn as nn
 class PartialLoss(nn.Module):
     def __init__(self, confidence):
         super().__init__()
-        self.confidence = confidence.cuda()
+        self.confidence = confidence
         self.conf_ema_m = 0.99
 
     def set_conf_ema_m(self, epoch, args):
@@ -22,7 +22,7 @@ class PartialLoss(nn.Module):
     def confidence_update(self, temp_un_conf, batch_index, batchY):
         with torch.no_grad():
             _, prot_pred = (temp_un_conf * batchY).max(dim=1)
-            pseudo_label = F.one_hot(prot_pred, batchY.shape[1]).float().cuda().detach()
+            pseudo_label = F.one_hot(prot_pred, batchY.shape[1]).float().to(temp_un_conf.device).detach()
             self.confidence[batch_index, :] = self.conf_ema_m * self.confidence[batch_index, :] \
                                              + (1 - self.conf_ema_m) * pseudo_label
 

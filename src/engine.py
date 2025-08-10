@@ -114,7 +114,7 @@ def train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, devi
         _, pseudo_loss_vec = loss_fn(logits_w, None, targets=pseudo_label)
 
         idx_chosen_sm = []
-        sel_flags = torch.zeros(images_w.shape[0]).cuda().detach()
+        sel_flags = torch.zeros(images_w.shape[0], device=device).detach()
         # initialize selection flags
         for j in range(solar_args['num_class']):
             indices = np.where(pseudo_label_idx.cpu().numpy()==j)[0]

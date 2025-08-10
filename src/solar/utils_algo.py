@@ -10,9 +10,9 @@ def sinkhorn(pred, eta, r_in=None, rec=False):
     K = PS.shape[1]
     N = PS.shape[0]
     PS = PS.T
-    c = torch.ones((N, 1)) / N
-    r = r_in.cuda()
-    c = c.cuda()
+    device = pred.device
+    c = torch.ones((N, 1), device=device) / N
+    r = r_in.to(device)
     # average column mean 1/N
     PS = torch.pow(PS, eta)  # K x N
     r_init = copy.deepcopy(r)

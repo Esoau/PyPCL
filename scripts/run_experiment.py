@@ -149,7 +149,7 @@ pico_loader = DataLoader(
 )
 
 initial_confidence = torch.ones(len(pico_train_dataset), pico_args['num_class']) / pico_args['num_class']
-pico_cls_loss = PartialLoss(initial_confidence)
+pico_cls_loss = PartialLoss(initial_confidence.to(DEVICE))
 pico_cont_loss = SupConLoss()
 
 pico_optimizer = optim.SGD(pico_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
@@ -196,8 +196,9 @@ for i, p_label in enumerate(solar_train_dataset.given_label_matrix_sparse):
 
 # Pass this newly created matrix to the loss function
 solar_loss_fn = solar_partial_loss(solar_given_label_matrix)
+solar_loss_fn.confidence = solar_loss_fn.confidence.to(DEVICE)  # Move confidence to device
 solar_optimizer = optim.SGD(solar_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-3)
-queue = torch.zeros(64 * train_config['batch_size'], train_config['num_classes']).cuda()
+queue = torch.zeros(64 * train_config['batch_size'], train_config['num_classes']).to(DEVICE)
 emp_dist = (torch.ones(train_config['num_classes']) / train_config['num_classes']).unsqueeze(1)
 
 print_memory_usage("SoLar Preparation")
