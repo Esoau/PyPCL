@@ -97,16 +97,31 @@ def train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, devi
         prediction = F.softmax(logits_w.detach(), dim=1)
         sinkhorn_cost = prediction * partial_Y
         
-        prediction_queue = sinkhorn_cost.detach()
+        # original code (memory leak)
+        # prediction_queue = sinkhorn_cost.detach()
+
+        # if queue is not None:
+        #     if not torch.all(queue[-1, :] == 0):
+        #         prediction_queue = torch.cat((queue, prediction_queue))
+        #     # fill the queue
+        #     queue[bs:] = queue[:-bs].clone().detach()
+        #     queue[:bs] = prediction_queue[-bs:].clone().detach()
+
+        # detach the sinkhorn_cost for queue operations.
+        detached_sinkhorn_cost = sinkhorn_cost.detach()
+        
+        # create a temp variable for the sinkhorn algorithm input.
+        sinkhorn_input = detached_sinkhorn_cost
 
         if queue is not None:
             if not torch.all(queue[-1, :] == 0):
-                prediction_queue = torch.cat((queue, prediction_queue))
-            # fill the queue
-            queue[bs:] = queue[:-bs].clone().detach()
-            queue[:bs] = prediction_queue[-bs:].clone().detach()
+                sinkhorn_input = torch.cat((queue, detached_sinkhorn_cost))
 
-        pseudo_label_soft, _ = sinkhorn(prediction_queue, solar_args['lamd'], r_in=emp_dist)
+            queue[bs:] = queue[:-bs].clone().detach()
+            queue[:bs] = detached_sinkhorn_cost.clone().detach()
+        
+        pseudo_label_soft, _ = sinkhorn(sinkhorn_input, solar_args['lamd'], r_in=emp_dist)
+        
         pseudo_label = pseudo_label_soft[-bs:]
         pseudo_label_idx = pseudo_label.max(dim=1)[1]
 
