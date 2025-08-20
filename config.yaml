@@ -1,28 +1,29 @@
 # Data Generation Parameters
 data_generation:
   cifar_path: './data'
+  eta: 0.2
   output_dir: './data/03_primary' # Changed to a more structured path
   k_candidates: 4
 
 # Training Hyperparameters
 training:
-  batch_size: 512
-  epochs: 300
-  learning_rate: 0.0001
   num_classes: 10
+  batch_size: 512
+  epochs: 200
+  learning_rate: 0.001
 
 pico:
   low_dim: 128
   moco_queue: 8192
   moco_m: 0.999
   proto_m: 0.99
-  prot_start: 1 # Start prototype learning early for faster convergence
-  loss_weight: 0.5
-  conf_ema_range: [0.95, 0.8]
+  prot_start: 80
+  loss_weight: 1.0
+  conf_ema_range: '0.95,0.8'
 
 solar:
   warmup_epoch: 20
-  rho_range: [0.2, 0.6]
-  lamd: 3
-  eta: 0.9
+  rho_range: '0.2,0.8'
+  lamd: 0.5
+  eta: 0.999
   tau: 0.99

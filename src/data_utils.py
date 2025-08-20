@@ -26,12 +26,32 @@ class WeaklySupervisedDataset(Dataset):
         return image, self.targets[idx]
 
 class ComparisonDataGenerator:
-    def __init__(self, ground_truth_dataset):
+    def __init__(self, ground_truth_dataset, noise_type='clean', eta=0.0):
         self.dataset = ground_truth_dataset
         self.num_classes = len(self.dataset.classes)
         self.all_labels = np.arange(self.num_classes)
         self.original_data = self.dataset.data
         self.original_targets = torch.tensor(self.dataset.targets)
+        self.noise_type = noise_type
+        self.eta = eta
+
+    def _apply_noise(self, candidate_set, true_label):
+        if self.noise_type == 'noisy' and np.random.rand() < self.eta:
+            # Ensure candidate_set is a mutable set for easy removal
+            candidate_set_mutable = set(candidate_set)
+            if true_label in candidate_set_mutable:
+                candidate_set_mutable.remove(true_label)
+            
+            # If the set becomes empty, regenerate until it's not
+            while not candidate_set_mutable:
+                # This is a simple way to regenerate: add a random label.
+                # A more sophisticated approach might be needed depending on desired properties.
+                incorrect_labels = np.delete(self.all_labels, true_label)
+                random_label = np.random.choice(incorrect_labels)
+                candidate_set_mutable.add(random_label)
+
+            return np.array(list(candidate_set_mutable))
+        return candidate_set
 
     def generate_pl_dataset(self, k: int):
         if not 1 < k <= self.num_classes:
@@ -45,6 +65,10 @@ class ComparisonDataGenerator:
                 incorrect_labels, size=num_to_select, replace=False
             )
             candidate_set = np.append(additional_candidates, true_label)
+            
+            # Apply noise if specified
+            candidate_set = self._apply_noise(candidate_set, true_label)
+
             candidate_set.sort()
             new_targets.append(torch.tensor(candidate_set))
         return WeaklySupervisedDataset(original_data, new_targets)
@@ -81,17 +105,13 @@ class ComparisonDataGenerator:
                 if np.random.rand() < q:
                     pl_set.add(label)
             
-            pl_target = sorted(list(pl_set))
+            # Apply noise if specified
+            pl_set_array = self._apply_noise(np.array(list(pl_set)), true_label)
+            pl_target = sorted(list(pl_set_array))
             pl_targets.append(torch.tensor(pl_target, dtype=torch.long))
 
-            # Generate CL dataset
-            cl_set = set(all_labels) - pl_set
-            # Ensure cl_set is not empty. If it is, we have a problem.
-            # In the variable case, if q=1, pl_set will contain all labels.
-            # cl_set will be empty. This might be an issue for training.
-            # The paper probably has a constraint on q.
-            # For now, I will assume q < 1.
-            # If cl_set is empty, what should be the target? An empty tensor.
+            # Generate CL dataset from the (potentially noisy) PL set
+            cl_set = set(all_labels) - set(pl_target)
             cl_target = sorted(list(cl_set))
             cl_targets.append(torch.tensor(cl_target, dtype=torch.long))
 

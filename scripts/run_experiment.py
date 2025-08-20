@@ -28,15 +28,6 @@ from src.print_mem import print_memory_usage
 from src.plotting import save_accuracy_plot
 
 
-# Argument parsing
-parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
-parser.add_argument('--type', choices=['constant', 'variable'], help='Type of label generation.')
-parser.add_argument('--value', type=float, help='Value for k (if type=constant) or q (if type=variable).')
-parser.add_argument('--noise', choices=['noisy', 'clean'], help='Type of noise to add.')
-parser.add_argument('--batch_size', type=int, default=512, help='Batch size for training.')
-parser.add_argument('--epochs', type=int, default=800, help='Number of training epochs.')
-args = parser.parse_args()
-
 # Configuration
 with open('config.yaml', 'r') as f:
     config = yaml.safe_load(f)
@@ -45,6 +36,16 @@ data_config = config['data_generation']
 train_config = config['training']
 pico_config = config['pico']
 solar_config = config['solar']
+
+# Argument parsing
+parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
+parser.add_argument('--type', choices=['constant', 'variable'], help='Type of label generation.')
+parser.add_argument('--value', type=float, help='Value for k (if type=constant) or q (if type=variable).')
+parser.add_argument('--noise', choices=['noisy', 'clean'], help='Type of noise to add.')
+parser.add_argument('--eta', type=float, default=data_config.get('eta', 0.0), help='Noise level eta. Only used if noise is noisy.')
+parser.add_argument('--batch_size', type=int, default=train_config['batch_size'], help='Batch size for training.')
+parser.add_argument('--epochs', type=int, default=train_config['epochs'], help='Number of training epochs.')
+args = parser.parse_args()
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,7 +66,13 @@ test_transform = transforms.Compose([
 # Get CIFAR-10 dataset
 print("Loading original CIFAR-10 dataset...")
 cifar10_train_raw = CIFAR10(root=data_config['cifar_path'], train=True, download=True)
-generator = ComparisonDataGenerator(cifar10_train_raw)
+
+# Initialize the data generator with noise parameters
+eta_val = args.eta if args.noise == 'noisy' else 0.0
+generator = ComparisonDataGenerator(cifar10_train_raw, noise_type=args.noise, eta=eta_val)
+if args.noise == 'noisy':
+    print(f"--- Generating noisy datasets with eta = {eta_val} ---")
+
 C = train_config['num_classes']
 
 # Create CL and PL datasets based on type
@@ -88,12 +95,12 @@ else:
 pl_dataset = WeaklySupervisedDataset(pl_dataset_raw.data, pl_dataset_raw.targets, transform=train_transform)
 cl_dataset = WeaklySupervisedDataset(cl_dataset_raw.data, cl_dataset_raw.targets, transform=train_transform)
 
-pl_loader = DataLoader(pl_dataset, batch_size=train_config['batch_size'], shuffle=True, collate_fn=collate_fn)
-cl_loader = DataLoader(cl_dataset, batch_size=train_config['batch_size'], shuffle=True, collate_fn=collate_fn)
+pl_loader = DataLoader(pl_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
+cl_loader = DataLoader(cl_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
 
 # Create test loader
 cifar10_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True, transform=test_transform)
-test_loader = DataLoader(cifar10_test_raw, batch_size=train_config['batch_size'], shuffle=False)
+test_loader = DataLoader(cifar10_test_raw, batch_size=args.batch_size, shuffle=False)
 
 # Initialize accuracy lists and dictionary
 proden_accuracies = []
@@ -111,14 +118,14 @@ all_accuracies = {
     'PiCO': pico_accuracies,
     'SoLar': solar_accuracies
 }
-epochs_range = range(1, train_config['epochs'] + 1)
+epochs_range = range(1, args.epochs + 1)
 
 # Train PRODEN
 print("\nTraining PRODEN (PL)")
 proden_model = create_model(train_config['num_classes'])
 proden_loss = proden()
 proden_optimizer = optim.Adam(proden_model.parameters(), lr=train_config['learning_rate'])
-proden_accuracies.extend(train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, train_config['epochs'], DEVICE))
+proden_accuracies.extend(train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 
 
@@ -127,7 +134,7 @@ print("\nTraining MCL-LOG (CL)")
 mcl_log_model = create_model(train_config['num_classes'])
 mcl_log_loss = MCL_LOG(num_classes=train_config['num_classes'])
 mcl_log_optimizer = optim.Adam(mcl_log_model.parameters(), lr=train_config['learning_rate'])
-mcl_log_accuracies.extend(train_algorithm(mcl_log_model, cl_loader, test_loader, mcl_log_loss, mcl_log_optimizer, train_config['epochs'], DEVICE))
+mcl_log_accuracies.extend(train_algorithm(mcl_log_model, cl_loader, test_loader, mcl_log_loss, mcl_log_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 
 # Train MCL-MAE
@@ -135,7 +142,7 @@ print("\nTraining MCL-MAE (CL)")
 mcl_mae_model = create_model(train_config['num_classes'])
 mcl_mae_loss = MCL_MAE(num_classes=train_config['num_classes'])
 mcl_mae_optimizer = optim.Adam(mcl_mae_model.parameters(), lr=train_config['learning_rate'])
-mcl_mae_accuracies.extend(train_algorithm(mcl_mae_model, cl_loader, test_loader, mcl_mae_loss, mcl_mae_optimizer, train_config['epochs'], DEVICE))
+mcl_mae_accuracies.extend(train_algorithm(mcl_mae_model, cl_loader, test_loader, mcl_mae_loss, mcl_mae_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 
 # Train MCL-EXP
@@ -143,7 +150,7 @@ print("\nTraining MCL-EXP (CL)")
 mcl_exp_model = create_model(train_config['num_classes'])
 mcl_exp_loss = MCL_EXP(num_classes=train_config['num_classes'])
 mcl_exp_optimizer = optim.Adam(mcl_exp_model.parameters(), lr=train_config['learning_rate'])
-mcl_exp_accuracies.extend(train_algorithm(mcl_exp_model, cl_loader, test_loader, mcl_exp_loss, mcl_exp_optimizer, train_config['epochs'], DEVICE))
+mcl_exp_accuracies.extend(train_algorithm(mcl_exp_model, cl_loader, test_loader, mcl_exp_loss, mcl_exp_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 
 
@@ -151,7 +158,7 @@ save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 print("\nTraining PiCO (PL)")
 pico_args = {
     'num_class': train_config['num_classes'],
-    'epochs': train_config['epochs'],
+    'epochs': args.epochs,
     'low_dim': pico_config['low_dim'],
     'moco_queue': pico_config['moco_queue'],
     'moco_m': pico_config['moco_m'],
@@ -164,7 +171,7 @@ pico_model = PiCOModel(pico_args).to(DEVICE)
 pico_train_dataset = PicoDataset(pl_dataset_raw, generator.original_targets)
 pico_loader = DataLoader(
     pico_train_dataset,
-    batch_size=train_config['batch_size'],
+    batch_size=args.batch_size,
     shuffle=True,
     drop_last=True,
     collate_fn=pico_collate_fn
@@ -176,11 +183,11 @@ pico_cont_loss = SupConLoss()
 
 pico_optimizer = optim.SGD(pico_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
 
-for epoch in range(train_config['epochs']):
+for epoch in range(args.epochs):
     pico_cls_loss.set_conf_ema_m(epoch, pico_args)
     avg_loss = train_pico_epoch(pico_args, pico_model, pico_loader, pico_cls_loss, pico_cont_loss, pico_optimizer, epoch, DEVICE)
     current_accuracy = evaluate_model(pico_model, test_loader, DEVICE)
-    print(f"Epoch [{epoch+1}/{train_config['epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
+    print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
     pico_accuracies.append(current_accuracy)
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 
@@ -188,7 +195,7 @@ save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 print("\nTraining SoLar (PL)")
 solar_args = {
     'num_class': train_config['num_classes'],
-    'epochs': train_config['epochs'],
+    'epochs': args.epochs,
     'warmup_epoch': solar_config['warmup_epoch'],
     'rho_range': solar_config['rho_range'],
     'lamd': solar_config['lamd'],
@@ -199,7 +206,7 @@ solar_model = create_model(train_config['num_classes']).to(DEVICE)
 solar_train_dataset = SoLarDataset(pl_dataset_raw, generator.original_targets)
 solar_loader = DataLoader(
     solar_train_dataset,
-    batch_size=train_config['batch_size'],
+    batch_size=args.batch_size,
     shuffle=True,
     drop_last=True,
     collate_fn=solar_collate_fn
@@ -216,15 +223,15 @@ for i, p_label in enumerate(solar_train_dataset.given_label_matrix_sparse):
 # This now exactly mirrors the original SoLar implementation's workflow.
 solar_loss_fn = solar_partial_loss(solar_given_label_matrix, DEVICE)
 solar_optimizer = optim.SGD(solar_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-3)
-queue = torch.zeros(64 * train_config['batch_size'], train_config['num_classes']).to(DEVICE)
+queue = torch.zeros(64 * args.batch_size, train_config['num_classes']).to(DEVICE)
 emp_dist = (torch.ones(train_config['num_classes']) / train_config['num_classes']).unsqueeze(1)
 
 print_memory_usage("SoLar Preparation")
 
-for epoch in range(train_config['epochs']):
+for epoch in range(args.epochs):
     avg_loss = train_solar_epoch(solar_args, solar_model, solar_loader, solar_loss_fn, solar_optimizer, epoch, DEVICE, queue, emp_dist)
     current_accuracy = evaluate_model(solar_model, test_loader, DEVICE)
-    print(f"Epoch [{epoch+1}/{train_config['epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
+    print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
     solar_accuracies.append(current_accuracy)
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 
@@ -248,7 +255,7 @@ print(f"Best Accuracy (SoLar): {best_solar:.2f}%")
 
 
 # Accuracy plot
-epochs = range(1, train_config['epochs'] + 1)
+epochs = range(1, args.epochs + 1)
 plt.figure(figsize=(12, 7))
 plt.plot(epochs, proden_accuracies, '-', label='PRODEN Test Accuracy')
 plt.plot(epochs, mcl_log_accuracies, '-', label='MCL-LOG Test Accuracy')
