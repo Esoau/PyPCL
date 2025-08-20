@@ -17,13 +17,13 @@ pico:
   moco_queue: 8192
   moco_m: 0.999
   proto_m: 0.99
-  prot_start: 80
-  loss_weight: 1.0
-  conf_ema_range: '0.95,0.8'
+  prot_start: 1 # Start prototype learning early for faster convergence
+  loss_weight: 0.5
+  conf_ema_range: [0.95, 0.8]
 
 solar:
   warmup_epoch: 20
-  rho_range: '0.2,0.8'
-  lamd: 0.5
-  eta: 0.999
+  rho_range: [0.2, 0.6]
+  lamd: 3
+  eta: 0.9
   tau: 0.99
