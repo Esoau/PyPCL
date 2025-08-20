@@ -9,7 +9,7 @@ data_generation:
 training:
   num_classes: 10
   batch_size: 512
-  epochs: 200
+  epochs: 800
   learning_rate: 0.001
 
 pico:
