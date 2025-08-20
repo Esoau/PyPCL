@@ -3,11 +3,12 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 class partial_loss(nn.Module):
-    def __init__(self, train_givenY):
+    def __init__(self, train_givenY, device):
         super().__init__()
         print('Calculating uniform targets...')
         tempY = train_givenY.sum(dim=1).unsqueeze(1).repeat(1, train_givenY.shape[1])
         confidence = train_givenY.float()/tempY
+        confidence = confidence.to(device)
         # calculate confidence
         self.confidence = confidence
 

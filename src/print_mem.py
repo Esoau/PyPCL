@@ -1,5 +1,6 @@
 import psutil
 import torch 
+import os
 
 def print_memory_usage(step_name=""):
     """Prints current CPU and GPU memory usage."""
