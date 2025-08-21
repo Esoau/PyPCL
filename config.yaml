@@ -7,7 +7,7 @@ data_generation:
 training:
   num_classes: 10
   batch_size: 512
-  epochs: 800
+  epochs: 1000
   learning_rate: 0.001
 
 pico:
@@ -20,11 +20,11 @@ pico:
   conf_ema_range: [0.95, 0.8]
 
 solar:
-  warmup_epoch: 20
+  warmup_epoch: 50
   rho_range: [0.2, 0.6]
   lamd: 3
   eta: 0.9
   tau: 0.99
-  est_epochs: 1  # pre-estimation stage
+  est_epochs: 100  # pre-estimation stage
   gamma1: 0.1     # first stage empirical distribution update
   gamma2: 0.01    # second stage empirical distribution update
