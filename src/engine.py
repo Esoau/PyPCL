@@ -97,20 +97,7 @@ def train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, devi
         prediction = F.softmax(logits_w.detach(), dim=1)
         sinkhorn_cost = prediction * partial_Y
         
-        # original code (memory leak)
-        # prediction_queue = sinkhorn_cost.detach()
-
-        # if queue is not None:
-        #     if not torch.all(queue[-1, :] == 0):
-        #         prediction_queue = torch.cat((queue, prediction_queue))
-        #     # fill the queue
-        #     queue[bs:] = queue[:-bs].clone().detach()
-        #     queue[:bs] = prediction_queue[-bs:].clone().detach()
-
-        # detach the sinkhorn_cost for queue operations.
         detached_sinkhorn_cost = sinkhorn_cost.detach()
-        
-        # create a temp variable for the sinkhorn algorithm input.
         sinkhorn_input = detached_sinkhorn_cost
 
         if queue is not None:
@@ -130,32 +117,27 @@ def train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, devi
 
         idx_chosen_sm = []
         sel_flags = torch.zeros(images_w.shape[0], device=device).detach()
-        # initialize selection flags
+
         for j in range(solar_args['num_class']):
             indices = np.where(pseudo_label_idx.cpu().numpy()==j)[0]
-            # torch.where will cause device error
             if len(indices) == 0:
                 continue
-                # if no sample is assigned this label (by argmax), skip
             bs_j = bs * emp_dist[j]
             pseudo_loss_vec_j = pseudo_loss_vec[indices]
             sorted_idx_j = pseudo_loss_vec_j.sort()[1].cpu().numpy()
             partition_j = max(min(int(math.ceil(bs_j*rho)), len(indices)), 1)
-            # at least one example
             idx_chosen_sm.append(indices[sorted_idx_j[:partition_j]])
 
         if len(idx_chosen_sm) > 0:
             idx_chosen_sm = np.concatenate(idx_chosen_sm)
             sel_flags[idx_chosen_sm] = 1
-        # filtering clean sinkhorn labels
+
         high_conf_cond = (pseudo_label * prediction).sum(dim=1) > solar_args['tau']
         sel_flags[high_conf_cond] = 1
         idx_chosen = torch.where(sel_flags == 1)[0]
         idx_unchosen = torch.where(sel_flags == 0)[0]
 
         if epoch < 1 or idx_chosen.shape[0] == 0:
-            # first epoch, using uniform labels for training
-            # else, if no samples are chosen, run rn 
             loss = rn_loss_vec.mean()
         else:
             if idx_unchosen.shape[0] > 0:
@@ -179,7 +161,6 @@ def train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, devi
 
             loss = (loss_sin + loss_mix + loss_cons) * eta + loss_unreliable * (1 - eta)
 
-
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -190,3 +171,46 @@ def train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, devi
         total_loss += loss.item()
         progress_bar.set_postfix(loss=total_loss / (progress_bar.n + 1))
     return total_loss / len(loader)
+
+def estimate_empirical_distribution(model, loader, num_class, device):
+    model.eval()
+    est_pred_list = []
+    with torch.no_grad():
+        for (images_w, images_s, partial_Y, true_labels, index) in loader:
+            images_w, partial_Y = images_w.to(device), partial_Y.to(device)
+            outputs = model(images_w)
+            pred = torch.softmax(outputs, dim=1) * partial_Y
+            est_pred_list.append(pred.cpu())
+    
+    est_pred_list = torch.cat(est_pred_list, dim=0)
+    est_pred_idx = est_pred_list.max(dim=1)[1]
+    est_pred = F.one_hot(est_pred_idx, num_class).float()
+    emp_dist = est_pred.sum(0) / est_pred.sum()
+    return emp_dist.unsqueeze(1)
+
+
+def train_solar(solar_args, model, loader, test_loader, loss_fn, optimizer, device, queue):
+    accuracies = []
+    
+    # Stage 1: Pre-estimation
+    print("\n--- SoLar Stage 1: Pre-estimation ---")
+    emp_dist = (torch.ones(solar_args['num_class']) / solar_args['num_class']).unsqueeze(1)
+    for epoch in range(solar_args['est_epochs']):
+        avg_loss = train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, device, queue, emp_dist)
+        emp_dist_train = estimate_empirical_distribution(model, loader, solar_args['num_class'], device)
+        emp_dist = solar_args['gamma1'] * emp_dist_train + (1 - solar_args['gamma1']) * emp_dist
+        current_accuracy = evaluate_model(model, test_loader, device)
+        print(f"Epoch [{epoch+1}/{solar_args['est_epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
+        # Note: accuracies from this stage are not typically used for final model selection.
+
+    # Stage 2: Final Training
+    print("\n--- SoLar Stage 2: Final Training ---")
+    for epoch in range(solar_args['epochs']):
+        avg_loss = train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, device, queue, emp_dist)
+        emp_dist_train = estimate_empirical_distribution(model, loader, solar_args['num_class'], device)
+        emp_dist = solar_args['gamma2'] * emp_dist_train + (1 - solar_args['gamma2']) * emp_dist
+        current_accuracy = evaluate_model(model, test_loader, device)
+        print(f"Epoch [{epoch+1}/{solar_args['epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
+        accuracies.append(current_accuracy)
+        
+    return accuracies

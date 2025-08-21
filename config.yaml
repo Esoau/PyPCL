@@ -2,8 +2,6 @@
 data_generation:
   cifar_path: './data'
   eta: 0.2
-  output_dir: './data/03_primary' # Changed to a more structured path
-  k_candidates: 4
 
 # Training Hyperparameters
 training:
@@ -27,3 +25,6 @@ solar:
   lamd: 3
   eta: 0.9
   tau: 0.99
+  est_epochs: 1  # pre-estimation stage
+  gamma1: 0.1     # first stage empirical distribution update
+  gamma2: 0.01    # second stage empirical distribution update

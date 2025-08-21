@@ -19,7 +19,7 @@ from src.data_utils import ComparisonDataGenerator, WeaklySupervisedDataset, Pic
 from src.models import create_model
 from src.proden_loss import proden
 from src.mcl_losses import MCL_LOG, MCL_MAE, MCL_EXP
-from src.engine import train_algorithm, evaluate_model, train_pico_epoch, train_solar_epoch
+from src.engine import train_algorithm, evaluate_model, train_pico_epoch, train_solar
 from src.pico.model import PiCOModel
 from src.pico.utils_loss import PartialLoss, SupConLoss
 from src.solar.utils_loss import partial_loss as solar_partial_loss
@@ -200,7 +200,10 @@ solar_args = {
     'rho_range': solar_config['rho_range'],
     'lamd': solar_config['lamd'],
     'eta': solar_config['eta'],
-    'tau': solar_config['tau']
+    'tau': solar_config['tau'],
+    'est_epochs': solar_config['est_epochs'],
+    'gamma1': solar_config['gamma1'],
+    'gamma2': solar_config['gamma2']
 }
 solar_model = create_model(train_config['num_classes']).to(DEVICE)
 solar_train_dataset = SoLarDataset(pl_dataset_raw, generator.original_targets)
@@ -212,28 +215,21 @@ solar_loader = DataLoader(
     collate_fn=solar_collate_fn
 )
 
-# Manually create the full label matrix just for the SoLar loss function
 print("Creating full label matrix for SoLar loss initialization...")
 num_classes = train_config['num_classes']
 solar_given_label_matrix = torch.zeros(len(solar_train_dataset), num_classes)
 for i, p_label in enumerate(solar_train_dataset.given_label_matrix_sparse):
     solar_given_label_matrix[i, p_label] = 1.0
 
-# Pass this newly created matrix to the loss function
-# This now exactly mirrors the original SoLar implementation's workflow.
 solar_loss_fn = solar_partial_loss(solar_given_label_matrix, DEVICE)
 solar_optimizer = optim.SGD(solar_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-3)
 queue = torch.zeros(64 * args.batch_size, train_config['num_classes']).to(DEVICE)
-emp_dist = (torch.ones(train_config['num_classes']) / train_config['num_classes']).unsqueeze(1)
 
 print_memory_usage("SoLar Preparation")
 
-for epoch in range(args.epochs):
-    avg_loss = train_solar_epoch(solar_args, solar_model, solar_loader, solar_loss_fn, solar_optimizer, epoch, DEVICE, queue, emp_dist)
-    current_accuracy = evaluate_model(solar_model, test_loader, DEVICE)
-    print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
-    solar_accuracies.append(current_accuracy)
+solar_accuracies.extend(train_solar(solar_args, solar_model, solar_loader, test_loader, solar_loss_fn, solar_optimizer, DEVICE, queue))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+
 
 print_memory_usage("SoLar Training")
 
