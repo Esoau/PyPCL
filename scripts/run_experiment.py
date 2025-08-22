@@ -127,6 +127,7 @@ proden_loss = proden()
 proden_optimizer = optim.Adam(proden_model.parameters(), lr=train_config['learning_rate'])
 proden_accuracies.extend(train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+del proden_model, proden_loss, proden_optimizer
 
 
 # Train MCL-LOG
@@ -136,6 +137,7 @@ mcl_log_loss = MCL_LOG(num_classes=train_config['num_classes'])
 mcl_log_optimizer = optim.Adam(mcl_log_model.parameters(), lr=train_config['learning_rate'])
 mcl_log_accuracies.extend(train_algorithm(mcl_log_model, cl_loader, test_loader, mcl_log_loss, mcl_log_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+del mcl_log_model, mcl_log_loss, mcl_log_optimizer
 
 # Train MCL-MAE
 print("\nTraining MCL-MAE (CL)")
@@ -144,6 +146,7 @@ mcl_mae_loss = MCL_MAE(num_classes=train_config['num_classes'])
 mcl_mae_optimizer = optim.Adam(mcl_mae_model.parameters(), lr=train_config['learning_rate'])
 mcl_mae_accuracies.extend(train_algorithm(mcl_mae_model, cl_loader, test_loader, mcl_mae_loss, mcl_mae_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+del mcl_mae_model, mcl_mae_loss, mcl_mae_optimizer
 
 # Train MCL-EXP
 print("\nTraining MCL-EXP (CL)")
@@ -152,6 +155,7 @@ mcl_exp_loss = MCL_EXP(num_classes=train_config['num_classes'])
 mcl_exp_optimizer = optim.Adam(mcl_exp_model.parameters(), lr=train_config['learning_rate'])
 mcl_exp_accuracies.extend(train_algorithm(mcl_exp_model, cl_loader, test_loader, mcl_exp_loss, mcl_exp_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+del mcl_exp_model, mcl_exp_loss, mcl_exp_optimizer
 
 
 # Train PiCO
@@ -190,6 +194,7 @@ for epoch in range(args.epochs):
     print(f"Epoch [{epoch+1}/{args.epochs}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
     pico_accuracies.append(current_accuracy)
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+del pico_model, pico_loader, pico_train_dataset, pico_cls_loss, pico_cont_loss, pico_optimizer, initial_confidence
 
 # Train SoLar
 print("\nTraining SoLar (PL)")
