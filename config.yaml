@@ -8,7 +8,9 @@ training:
   num_classes: 10
   batch_size: 512
   epochs: 1000
-  learning_rate: 0.001
+  lr: 0.001
+  momentum: 0.9
+  weight_decay: 1e-4
 
 pico:
   low_dim: 128
