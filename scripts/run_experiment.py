@@ -26,6 +26,7 @@ from src.solar.utils_loss import partial_loss as solar_partial_loss
 from src.collate import collate_fn, pico_collate_fn, solar_collate_fn
 from src.print_mem import print_memory_usage
 from src.plotting import save_accuracy_plot
+from src.args import parse_arguments
 
 
 # Configuration
@@ -38,17 +39,7 @@ pico_config = config['pico']
 solar_config = config['solar']
 
 # Argument parsing
-parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
-parser.add_argument('--type', choices=['constant', 'variable'], help='Type of label generation.')
-parser.add_argument('--value', type=float, help='Value for k (if type=constant) or q (if type=variable).')
-parser.add_argument('--noise', choices=['noisy', 'clean'], default='clean', help='Type of noise to add.')
-parser.add_argument('--eta', type=float, default=data_config.get('eta', 0.0), help='Noise level eta. Only used if noise is noisy.')
-parser.add_argument('--batch_size', type=int, default=train_config['batch_size'], help='Batch size for training.')
-parser.add_argument('--epochs', type=int, default=train_config['epochs'], help='Number of training epochs.')
-parser.add_argument('--lr', type=float, default=train_config['lr'], help='Learning rate for training.')
-parser.add_argument('--weight_decay', type=float, default=train_config['weight_decay'], help='Weight decay for optimizer.')
-parser.add_argument('--momentum', type=float, default=train_config['momentum'], help='Momentum for optimizer.')
-args = parser.parse_args()
+args = parse_arguments(data_config, train_config)
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -258,34 +249,8 @@ print(f"Best Accuracy (PiCO): {best_pico:.2f}%")
 print(f"Best Accuracy (SoLar): {best_solar:.2f}%")
 
 
-# Accuracy plot
-epochs = range(1, args.epochs + 1)
-plt.figure(figsize=(12, 7))
-plt.plot(epochs, proden_accuracies, '-', label='PRODEN Test Accuracy')
-plt.plot(epochs, mcl_log_accuracies, '-', label='MCL-LOG Test Accuracy')
-plt.plot(epochs, mcl_mae_accuracies, '-', label='MCL-MAE Test Accuracy')
-plt.plot(epochs, mcl_exp_accuracies, '-', label='MCL-EXP Test Accuracy')
-plt.plot(epochs, pico_accuracies, '-', label='PiCO Test Accuracy')
-plt.plot(epochs, solar_accuracies, '-', label='SoLar Test Accuracy')
-
-if args.type == 'constant':
-    plt.title(f'Test Accuracy vs. Epochs (Constant k={int(args.value)})')
-else:
-    plt.title(f'Test Accuracy vs. Epochs (Variable q={args.value})')
-plt.xlabel('Epochs')
-plt.ylabel('Accuracy (%)')
-plt.legend()
-plt.grid(True)
-
-# Create plots directory and save the plot
-plots_dir = os.path.join(project_root, 'plots')
-os.makedirs(plots_dir, exist_ok=True)
-if args.type == 'constant':
-    filename = f'accuracy_plot_k_{int(args.value)}.png'
-else:
-    filename = f'accuracy_plot_q_{args.value}.png'
-save_path = os.path.join(plots_dir, filename)
-plt.savefig(save_path)
-print(f"Plot saved to {save_path}")
-
+# Final accuracy plot is saved by the last call to save_accuracy_plot
+# The final `plt.show()` will display the last saved plot.
+# To ensure the final plot with all data is shown, we can call it one last time.
+save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 plt.show()

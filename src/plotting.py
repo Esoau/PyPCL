@@ -3,29 +3,28 @@ import os
 
 def save_accuracy_plot(accuracies_dict, epochs_range, args, project_root):
     """Saves the accuracy plot to a file."""
-    plt.figure(figsize=(12, 7))
+    plt.figure(figsize=(12, 8))
 
     for model_name, accuracies in accuracies_dict.items():
         if accuracies:
             plt.plot(epochs_range, accuracies, '-', label=f'{model_name} Test Accuracy')
 
-    if args.type == 'constant':
-        plt.title(f'Test Accuracy vs. Epochs (Constant k={int(args.value)})')
-    else:
-        plt.title(f'Test Accuracy vs. Epochs (Variable q={args.value})')
+    # Create title with all arguments
+    args_str = ', '.join(f'{k}={v}' for k, v in vars(args).items())
+    plt.title(f'Test Accuracy vs. Epochs\n({args_str})', fontsize=10)
     
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy (%)')
     plt.legend()
     plt.grid(True)
+    plt.tight_layout(rect=[0, 0, 1, 0.96]) # Adjust layout for long title
 
     plots_dir = os.path.join(project_root, 'plots')
     os.makedirs(plots_dir, exist_ok=True)
     
-    if args.type == 'constant':
-        filename = f'accuracy_plot_k_{int(args.value)}.png'
-    else:
-        filename = f'accuracy_plot_q_{args.value}.png'
+    # Create a filename from the arguments
+    args_filename = '_'.join(f'{k}_{v}' for k, v in vars(args).items()).replace('.', '_')
+    filename = f'accuracy_plot_{args_filename}.png'
     
     save_path = os.path.join(plots_dir, filename)
     plt.savefig(save_path)
