@@ -45,6 +45,8 @@ parser.add_argument('--noise', choices=['noisy', 'clean'], help='Type of noise t
 parser.add_argument('--eta', type=float, default=data_config.get('eta', 0.0), help='Noise level eta. Only used if noise is noisy.')
 parser.add_argument('--batch_size', type=int, default=train_config['batch_size'], help='Batch size for training.')
 parser.add_argument('--epochs', type=int, default=train_config['epochs'], help='Number of training epochs.')
+parser.add_argument('--lr', type=float, default=train_config['lr'], help='Learning rate for training.')
+parser.add_argument('--weight_decay', type=float, default=train_config['weight_decay'], help='Weight decay for optimizer.')
 args = parser.parse_args()
 
 
@@ -124,7 +126,7 @@ epochs_range = range(1, args.epochs + 1)
 print("\nTraining PRODEN (PL)")
 proden_model = create_model(train_config['num_classes'])
 proden_loss = proden()
-proden_optimizer = optim.Adam(proden_model.parameters(), lr=train_config['learning_rate'])
+proden_optimizer = optim.SGD(proden_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
 proden_accuracies.extend(train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 del proden_model, proden_loss, proden_optimizer
@@ -134,7 +136,7 @@ del proden_model, proden_loss, proden_optimizer
 print("\nTraining MCL-LOG (CL)")
 mcl_log_model = create_model(train_config['num_classes'])
 mcl_log_loss = MCL_LOG(num_classes=train_config['num_classes'])
-mcl_log_optimizer = optim.Adam(mcl_log_model.parameters(), lr=train_config['learning_rate'])
+mcl_log_optimizer = optim.SGD(mcl_log_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
 mcl_log_accuracies.extend(train_algorithm(mcl_log_model, cl_loader, test_loader, mcl_log_loss, mcl_log_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 del mcl_log_model, mcl_log_loss, mcl_log_optimizer
@@ -143,7 +145,7 @@ del mcl_log_model, mcl_log_loss, mcl_log_optimizer
 print("\nTraining MCL-MAE (CL)")
 mcl_mae_model = create_model(train_config['num_classes'])
 mcl_mae_loss = MCL_MAE(num_classes=train_config['num_classes'])
-mcl_mae_optimizer = optim.Adam(mcl_mae_model.parameters(), lr=train_config['learning_rate'])
+mcl_mae_optimizer = optim.SGD(mcl_mae_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
 mcl_mae_accuracies.extend(train_algorithm(mcl_mae_model, cl_loader, test_loader, mcl_mae_loss, mcl_mae_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 del mcl_mae_model, mcl_mae_loss, mcl_mae_optimizer
@@ -152,7 +154,7 @@ del mcl_mae_model, mcl_mae_loss, mcl_mae_optimizer
 print("\nTraining MCL-EXP (CL)")
 mcl_exp_model = create_model(train_config['num_classes'])
 mcl_exp_loss = MCL_EXP(num_classes=train_config['num_classes'])
-mcl_exp_optimizer = optim.Adam(mcl_exp_model.parameters(), lr=train_config['learning_rate'])
+mcl_exp_optimizer = optim.SGD(mcl_exp_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
 mcl_exp_accuracies.extend(train_algorithm(mcl_exp_model, cl_loader, test_loader, mcl_exp_loss, mcl_exp_optimizer, args.epochs, DEVICE))
 save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 del mcl_exp_model, mcl_exp_loss, mcl_exp_optimizer
