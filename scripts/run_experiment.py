@@ -105,19 +105,55 @@ pico_accuracies = []
 solar_accuracies = []
 
 all_accuracies = {
-    'PRODEN': [], 'MCL-LOG': [], 'MCL-MAE': [], 'MCL-EXP': [],
-    'PiCO': [], 'SoLar': []
+    'PRODEN': proden_accuracies,
+    'MCL-LOG': mcl_log_accuracies,
+    'MCL-MAE': mcl_mae_accuracies,
+    'MCL-EXP': mcl_exp_accuracies,
+    'PiCO': pico_accuracies,
+    'SoLar': solar_accuracies
 }
 epochs_range = range(1, args.epochs + 1)
 
-# --- Run Standard Training Models ---
-# run_and_train_model('PRODEN', train_config, args, pl_loader, test_loader, proden, DEVICE, project_root, all_accuracies)
-# run_and_train_model('MCL-LOG', train_config, args, cl_loader, test_loader, MCL_LOG, DEVICE, project_root, all_accuracies)
-# run_and_train_model('MCL-MAE', train_config, args, cl_loader, test_loader, MCL_MAE, DEVICE, project_root, all_accuracies)
-# run_and_train_model('MCL-EXP', train_config, args, cl_loader, test_loader, MCL_EXP, DEVICE, project_root, all_accuracies)
+# # Train PRODEN
+# print("\nTraining PRODEN (PL)")
+# proden_model = create_model(train_config['num_classes'])
+# proden_loss = proden()
+# proden_optimizer = optim.SGD(proden_model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+# proden_accuracies.extend(train_algorithm(proden_model, pl_loader, test_loader, proden_loss, proden_optimizer, args.epochs, DEVICE))
+# save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+# del proden_model, proden_loss, proden_optimizer
 
-# --- Train PiCO ---
-print("\n--- Training PiCO (PL) ---")
+
+# # Train MCL-LOG
+# print("\nTraining MCL-LOG (CL)")
+# mcl_log_model = create_model(train_config['num_classes'])
+# mcl_log_loss = MCL_LOG(num_classes=train_config['num_classes'])
+# mcl_log_optimizer = optim.SGD(mcl_log_model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+# mcl_log_accuracies.extend(train_algorithm(mcl_log_model, cl_loader, test_loader, mcl_log_loss, mcl_log_optimizer, args.epochs, DEVICE))
+# save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+# del mcl_log_model, mcl_log_loss, mcl_log_optimizer
+
+# # Train MCL-MAE
+# print("\nTraining MCL-MAE (CL)")
+# mcl_mae_model = create_model(train_config['num_classes'])
+# mcl_mae_loss = MCL_MAE(num_classes=train_config['num_classes'])
+# mcl_mae_optimizer = optim.SGD(mcl_mae_model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+# mcl_mae_accuracies.extend(train_algorithm(mcl_mae_model, cl_loader, test_loader, mcl_mae_loss, mcl_mae_optimizer, args.epochs, DEVICE))
+# save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+# del mcl_mae_model, mcl_mae_loss, mcl_mae_optimizer
+
+# # Train MCL-EXP
+# print("\nTraining MCL-EXP (CL)")
+# mcl_exp_model = create_model(train_config['num_classes'])
+# mcl_exp_loss = MCL_EXP(num_classes=train_config['num_classes'])
+# mcl_exp_optimizer = optim.SGD(mcl_exp_model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+# mcl_exp_accuracies.extend(train_algorithm(mcl_exp_model, cl_loader, test_loader, mcl_exp_loss, mcl_exp_optimizer, args.epochs, DEVICE))
+# save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
+# del mcl_exp_model, mcl_exp_loss, mcl_exp_optimizer
+
+
+# Train PiCO
+print("\nTraining PiCO (PL)")
 pico_args = {
     'num_class': train_config['num_classes'],
     'epochs': args.epochs,
@@ -143,7 +179,7 @@ initial_confidence = torch.ones(len(pico_train_dataset), pico_args['num_class'])
 pico_cls_loss = PartialLoss(initial_confidence.to(DEVICE))
 pico_cont_loss = SupConLoss()
 
-pico_optimizer = optim.SGD(pico_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-4)
+pico_optimizer = optim.SGD(pico_model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
 for epoch in range(args.epochs):
     pico_cls_loss.set_conf_ema_m(epoch, pico_args)
@@ -185,7 +221,7 @@ for i, p_label in enumerate(solar_train_dataset.given_label_matrix_sparse):
     solar_given_label_matrix[i, p_label] = 1.0
 
 solar_loss_fn = solar_partial_loss(solar_given_label_matrix, DEVICE)
-solar_optimizer = optim.SGD(solar_model.parameters(), lr=train_config['learning_rate'], momentum=0.9, weight_decay=1e-3)
+solar_optimizer = optim.SGD(solar_model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 queue = torch.zeros(64 * args.batch_size, train_config['num_classes']).to(DEVICE)
 
 print_memory_usage("SoLar Preparation")
@@ -196,19 +232,19 @@ save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
 
 print_memory_usage("SoLar Training")
 
-# Final results
-print("\n--- Final Results ---")
-best_proden = max(proden_accuracies) if proden_accuracies else 0
-best_mcl_log = max(mcl_log_accuracies) if mcl_log_accuracies else 0
-best_mcl_mae = max(mcl_mae_accuracies) if mcl_mae_accuracies else 0
-best_mcl_exp = max(mcl_exp_accuracies) if mcl_exp_accuracies else 0
+# # Final results
+# print("\n--- Final Results ---")
+# best_proden = max(proden_accuracies) if proden_accuracies else 0
+# best_mcl_log = max(mcl_log_accuracies) if mcl_log_accuracies else 0
+# best_mcl_mae = max(mcl_mae_accuracies) if mcl_mae_accuracies else 0
+# best_mcl_exp = max(mcl_exp_accuracies) if mcl_exp_accuracies else 0
 best_pico = max(pico_accuracies) if pico_accuracies else 0
 best_solar = max(solar_accuracies) if solar_accuracies else 0
 
-print(f"Best Accuracy (PRODEN): {best_proden:.2f}%")
-print(f"Best Accuracy (MCL-LOG): {best_mcl_log:.2f}%")
-print(f"Best Accuracy (MCL-MAE): {best_mcl_mae:.2f}%")
-print(f"Best Accuracy (MCL-EXP): {best_mcl_exp:.2f}%")
+# print(f"Best Accuracy (PRODEN): {best_proden:.2f}%")
+# print(f"Best Accuracy (MCL-LOG): {best_mcl_log:.2f}%")
+# print(f"Best Accuracy (MCL-MAE): {best_mcl_mae:.2f}%")
+# print(f"Best Accuracy (MCL-EXP): {best_mcl_exp:.2f}%")
 print(f"Best Accuracy (PiCO): {best_pico:.2f}%")
 print(f"Best Accuracy (SoLar): {best_solar:.2f}%")
 
