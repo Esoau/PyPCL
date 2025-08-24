@@ -24,7 +24,7 @@ def save_accuracy_plot(accuracies_dict, epochs_range, args, project_root):
     
     # Create a filename from the arguments
     args_filename = '_'.join(f'{k}_{v}' for k, v in vars(args).items()).replace('.', '_')
-    filename = f'pico_solar_accuracy_plot_{args_filename}.png'
+    filename = f'accuracy_plot_{args_filename}.png'
     
     save_path = os.path.join(plots_dir, filename)
     plt.savefig(save_path)
