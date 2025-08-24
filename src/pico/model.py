@@ -49,7 +49,7 @@ class PiCOModel(nn.Module):
 
         for feat, label in zip(q, pseudo_labels_b):
             self.prototypes[label] = self.prototypes[label] * args['proto_m'] + (1 - args['proto_m']) * feat
-        self.prototypes = F.normalize(self.prototypes, p=2, dim=1)
+        self.prototypes = F.normalize(self.prototypes, p=2, dim=1).detach()
 
         with torch.no_grad():
             self._momentum_update_key_encoder(args)
