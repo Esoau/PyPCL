@@ -62,7 +62,7 @@ def train_pico_epoch(pico_args, model, loader, loss_fn, loss_cont_fn, optimizer,
         batch_size = cls_out.shape[0]
 
         if start_upd_prot:
-            loss_fn.confidence_update(temp_un_conf=score_prot, batch_index=index, batchY=partial_Y)
+            loss_fn.confidence_update(temp_un_conf=score_prot.detach(), batch_index=index, batchY=partial_Y)
         
         mask = torch.eq(pseudo_target_cont[:batch_size].unsqueeze(1), pseudo_target_cont.unsqueeze(0)).float() if start_upd_prot else None
 

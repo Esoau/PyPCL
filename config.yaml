@@ -17,7 +17,7 @@ pico:
   moco_queue: 8192
   moco_m: 0.999
   proto_m: 0.99
-  prot_start: 1 # Start prototype learning early for faster convergence
+  prot_start: 20 # Start prototype learning early for faster convergence
   loss_weight: 0.5
   conf_ema_range: [0.95, 0.8]
 

@@ -1,5 +1,6 @@
 # Datasets
 data/
+plots/
 # Python bytecode
 __pycache__/
 *.pyc
