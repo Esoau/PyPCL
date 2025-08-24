@@ -172,7 +172,9 @@ pico_loader = DataLoader(
     batch_size=args.batch_size,
     shuffle=True,
     drop_last=True,
-    collate_fn=pico_collate_fn
+    collate_fn=pico_collate_fn,
+    num_workers=4,
+    pin_memory=True
 )
 
 initial_confidence = torch.ones(len(pico_train_dataset), pico_args['num_class']) / pico_args['num_class']
