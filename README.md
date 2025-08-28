@@ -11,7 +11,7 @@ The library implements and compares several state-of-the-art algorithms for both
 | [PiCo](https://arxiv.org/abs/2201.08984)           | PLL           | A contrastive learning framework that uses a momentum-based queue of features to learn robust representations.                                |
 | [Proden](https://arxiv.org/pdf/1803.09364)         | PLL           | A progressive denoising method that rectifies noisy labels during the training process, leading to improved model performance.                |
 | [SoLar](https://arxiv.org/abs/2209.10365)          | PLL           | A self-organizing label refinement strategy that employs Sinkhorn's algorithm for efficient and accurate label disambiguation.              |
-| [MCL](https://openreview.net/pdf?id=SJzR2iRcK7)    | CLL           | A multi-class learning approach with three loss variations: **MAE** (Mean Absolute Error), **LOG** (Logarithmic Loss), and **EXP** (Exponential Loss). |
+| [MCL (MAE/LOG/EXP)](https://openreview.net/pdf?id=SJzR2iRcK7)    | CLL           | A multi-class learning approach with three loss variations: **MAE** (Mean Absolute Error), **LOG** (Logarithmic Loss), and **EXP** (Exponential Loss). |
 
 ## Dataset Generation
 
