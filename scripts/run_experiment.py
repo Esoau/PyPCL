@@ -14,6 +14,7 @@ from src.data_setup import prepare_datasets, get_dataloaders
 from src.training_pipelines import run_proden_training, run_mcl_training, run_pico_training, run_solar_training
 from src.plotting import save_accuracy_plot
 from src.args import parse_arguments
+from src.saving import save_accuracies_to_csv
 
 def main():
     # Configuration and Argument Parsing
@@ -65,10 +66,12 @@ def main():
     gc.collect()
 
     # Final Results
-    print("\n--- Final Results ---")
+    print("\nFinal Results")
     for name, accs in all_accuracies.items():
         if accs:
             print(f"Best Accuracy ({name}): {max(accs):.2f}%")
+
+    save_accuracies_to_csv(all_accuracies, args, project_root)
 
     plt.show()
 

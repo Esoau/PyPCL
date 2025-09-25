@@ -6,3 +6,4 @@ numpy
 Pillow
 psutil
 matplotlib
+pandas
