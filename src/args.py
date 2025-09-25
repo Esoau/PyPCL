@@ -13,12 +13,15 @@ def parse_arguments(data_config, train_config):
     """
     parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
     
+    # Dataset selection
+    parser.add_argument('--dataset', choices=['cifar10', 'clcifar10'], default='cifar10', help='Dataset to use.')
+
     # Label generation arguments
-    parser.add_argument('--type', choices=['constant', 'variable'], required=True, help='Type of label generation.')
-    parser.add_argument('--value', type=float, required=True, help='Value for k (if type=constant) or q (if type=variable).')
+    parser.add_argument('--type', choices=['constant', 'variable'], help='Type of label generation for CIFAR-10.')
+    parser.add_argument('--value', type=float, help='Value for k (if type=constant) or q (if type=variable).')
     
     # Noise arguments
-    parser.add_argument('--noise', choices=['noisy', 'clean'], default='clean', help='Type of noise to add.')
+    parser.add_argument('--noise', choices=['noisy', 'clean'], default='clean', help='Type of noise to add for CIFAR-10.')
     parser.add_argument('--eta', type=float, default=data_config.get('eta', 0.0), help='Noise level eta. Only used if noise is noisy.')
     
     # Training arguments from config
@@ -29,4 +32,12 @@ def parse_arguments(data_config, train_config):
     parser.add_argument('--momentum', type=float, default=train_config['momentum'], help='Momentum for optimizer.')
     
     args = parser.parse_args()
+
+    if args.dataset == 'clcifar10':
+        if args.type is not None or args.noise != 'clean':
+            parser.error("--type and --noise arguments are not supported for the clcifar10 dataset.")
+    elif args.dataset == 'cifar10':
+        if args.type is None or args.value is None:
+            parser.error("--type and --value are required for the cifar10 dataset.")
+
     return args
