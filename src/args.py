@@ -14,7 +14,7 @@ def parse_arguments(data_config, train_config):
     parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
     
     # Dataset selection
-    parser.add_argument('--dataset', choices=['cifar10', 'clcifar10'], default='cifar10', help='Dataset to use.')
+    parser.add_argument('--dataset', choices=['cifar10', 'clcifar10', 'clcifar20'], default='cifar10', help='Dataset to use.')
 
     # Label generation arguments
     parser.add_argument('--type', choices=['constant', 'variable'], help='Type of label generation for CIFAR-10.')
@@ -33,9 +33,9 @@ def parse_arguments(data_config, train_config):
     
     args = parser.parse_args()
 
-    if args.dataset == 'clcifar10':
+    if args.dataset in ['clcifar10', 'clcifar20']:
         if args.type is not None or args.noise != 'clean':
-            parser.error("--type and --noise arguments are not supported for the clcifar10 dataset.")
+            parser.error(f"--type and --noise arguments are not supported for the {args.dataset} dataset.")
     elif args.dataset == 'cifar10':
         if args.type is None or args.value is None:
             parser.error("--type and --value are required for the cifar10 dataset.")

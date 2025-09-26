@@ -70,7 +70,7 @@ class CLCIFAR20(Dataset):
         self.input_dim = 32 * 32 * 3
         self.num_classes = 20
 
-        self.targets = [labels[0] for labels in data["cl_labels"]]
+        self.targets = data["cl_labels"]
         self.data = data["images"]
         self.ord_labels = data["ord_labels"]
 

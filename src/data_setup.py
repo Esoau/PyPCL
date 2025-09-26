@@ -1,12 +1,12 @@
 import torch
 from torch.utils.data import DataLoader
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR10, CIFAR100
 from torchvision import transforms
 import numpy as np
 
 from src.data_utils import ComparisonDataGenerator, WeaklySupervisedDataset, PicoDataset, SoLarDataset
 from src.collate import collate_fn, pico_collate_fn, solar_collate_fn
-from src.clcifar import CLCIFAR10 as CLCIFAR10_dataset
+from src.clcifar import CLCIFAR10 as CLCIFAR10_dataset, CLCIFAR20 as CLCIFAR20_dataset
 
 def get_transforms():
     """Returns train and test transforms for CIFAR-10."""
@@ -80,6 +80,32 @@ def prepare_clcifar10_datasets(data_config):
 
     return pl_dataset_raw, cl_dataset_raw, original_targets
 
+def prepare_clcifar20_datasets(data_config):
+    """Prepares and returns the PL and CL datasets for CLCIFAR-20."""
+    print("Loading CLCIFAR-20 dataset...")
+    cl_cifar20_train_raw = CLCIFAR20_dataset(root=data_config['cifar_path'])
+
+    # Use all complementary labels
+    cl_labels_as_tensors = [torch.tensor(t, dtype=torch.long) for t in cl_cifar20_train_raw.targets]
+    cl_dataset_raw = WeaklySupervisedDataset(data=cl_cifar20_train_raw.data, targets=cl_labels_as_tensors, transform=None)
+
+    # PL dataset is the complement of all CL labels
+    num_classes = 20
+    pl_labels = []
+    for cl_label_list in cl_cifar20_train_raw.targets:
+        pl_label = list(range(num_classes))
+        for cl_label in cl_label_list:
+            if cl_label in pl_label:
+                pl_label.remove(cl_label)
+        pl_labels.append(torch.tensor(pl_label, dtype=torch.long))
+
+    pl_dataset_raw = WeaklySupervisedDataset(data=cl_cifar20_train_raw.data, targets=pl_labels, transform=None)
+
+    # Keep original targets for evaluation
+    original_targets = torch.tensor(cl_cifar20_train_raw.ord_labels)
+
+    return pl_dataset_raw, cl_dataset_raw, original_targets
+
 
 def prepare_datasets(args, data_config, train_config):
     """Dispatches to the correct dataset preparation function."""
@@ -87,6 +113,8 @@ def prepare_datasets(args, data_config, train_config):
         return prepare_cifar10_datasets(args, data_config, train_config)
     elif args.dataset == 'clcifar10':
         return prepare_clcifar10_datasets(data_config)
+    elif args.dataset == 'clcifar20':
+        return prepare_clcifar20_datasets(data_config)
     else:
         raise ValueError(f"Unknown dataset: {args.dataset}")
 
@@ -101,8 +129,28 @@ def get_dataloaders(args, data_config, pl_dataset_raw, cl_dataset_raw, original_
     cl_loader = DataLoader(cl_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
 
     # Test loader
-    cifar10_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True, transform=test_transform)
-    test_loader = DataLoader(cifar10_test_raw, batch_size=args.batch_size, shuffle=False)
+    if args.dataset == 'clcifar20':
+        cifar_test_raw = CIFAR100(root=data_config['cifar_path'], train=False, download=True, transform=test_transform)
+        
+        # Nested function to exactly replicate the climage_dataset approach
+        def _cifar100_to_cifar20(target):
+            _dict = {
+                0: 4, 1: 1, 2: 14, 3: 8, 4: 0, 5: 6, 6: 7, 7: 7, 8: 18, 9: 3, 10: 3, 11: 14, 12: 9, 
+                13: 18, 14: 7, 15: 11, 16: 3, 17: 9, 18: 7, 19: 11, 20: 6, 21: 11, 22: 5, 23: 10, 
+                24: 7, 25: 6, 26: 13, 27: 15, 28: 3, 29: 15, 30: 0, 31: 11, 32: 1, 33: 10, 34: 12, 
+                35: 14, 36: 16, 37: 9, 38: 11, 39: 5, 40: 5, 41: 19, 42: 8, 43: 8, 44: 15, 45: 13, 
+                46: 14, 47: 17, 48: 18, 49: 10, 50: 16, 51: 4, 52: 17, 53: 4, 54: 2, 55: 0, 56: 17, 
+                57: 4, 58: 18, 59: 17, 60: 10, 61: 3, 62: 2, 63: 12, 64: 12, 65: 16, 66: 12, 67: 1, 
+                68: 9, 69: 19, 70: 2, 71: 10, 72: 0, 73: 1, 74: 16, 75: 12, 76: 9, 77: 13, 78: 15, 
+                79: 13, 80: 16, 81: 19, 82: 2, 83: 4, 84: 6, 85: 19, 86: 5, 87: 5, 88: 8, 89: 19, 
+                90: 18, 91: 1, 92: 2, 93: 15, 94: 6, 95: 0, 96: 17, 97: 8, 98: 14, 99: 13
+            }
+            return _dict[target]
+        
+        cifar_test_raw.targets = [_cifar100_to_cifar20(i) for i in cifar_test_raw.targets]
+    else:
+        cifar_test_raw = CIFAR10(root=data_config['cifar_path'], train=False, download=True, transform=test_transform)
+    test_loader = DataLoader(cifar_test_raw, batch_size=args.batch_size, shuffle=False)
 
     # PiCO loader
     pico_train_dataset = PicoDataset(pl_dataset_raw, original_targets)

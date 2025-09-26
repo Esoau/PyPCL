@@ -29,6 +29,11 @@ def main():
     pl_dataset_raw, cl_dataset_raw, original_targets = prepare_datasets(args, config['data_generation'], config['training'])
     loaders, solar_train_dataset = get_dataloaders(args, config['data_generation'], pl_dataset_raw, cl_dataset_raw, original_targets)
 
+    if args.dataset == 'clcifar20':
+        config['training']['num_classes'] = 20
+    else:
+        config['training']['num_classes'] = 10
+        
     # Accuracy tracking
     all_accuracies = {
         'PRODEN': [], 'MCL-LOG': [], 'MCL-MAE': [], 'MCL-EXP': [], 'PiCO': [], 'SoLar': []
