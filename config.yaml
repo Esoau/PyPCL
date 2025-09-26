@@ -5,7 +5,7 @@ data_generation:
 
 # Training Hyperparameters
 training:
-  num_classes: 10
+  num_classes: 20
   batch_size: 512
   epochs: 1000
   lr: 0.001
