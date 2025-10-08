@@ -1,7 +1,7 @@
 # Data Generation Parameters
 data_generation:
   cifar_path: './data'
-  eta: 0.2
+  eta: 0.2 # Noise level for 'noisy' data generation
 
 # Training Hyperparameters
 training:
@@ -12,21 +12,23 @@ training:
   momentum: 0.9
   weight_decay: 1e-4
 
+# PiCO Algorithm Parameters
 pico:
   low_dim: 128
   moco_queue: 8192
   moco_m: 0.999
   proto_m: 0.99
-  prot_start: 20 # Start prototype learning early for faster convergence
+  prot_start: 80 # Epoch to start prototype learning
   loss_weight: 0.5
   conf_ema_range: [0.95, 0.8]
 
+# SoLar Algorithm Parameters
 solar:
   warmup_epoch: 50
   rho_range: [0.2, 0.6]
   lamd: 3
   eta: 0.9
   tau: 0.99
-  est_epochs: 100  # pre-estimation stage
-  gamma1: 0.1     # first stage empirical distribution update
-  gamma2: 0.01    # second stage empirical distribution update
+  est_epochs: 100  # Pre-estimation stage epochs
+  gamma1: 0.1     # Empirical distribution update rate (stage 1)
+  gamma2: 0.01    # Empirical distribution update rate (stage 2)

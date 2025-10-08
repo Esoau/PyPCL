@@ -7,6 +7,7 @@ import math
 from src.solar.utils_algo import sinkhorn, linear_rampup
 
 def evaluate_model(model, test_loader, device):
+    """Calculates model accuracy on the test set."""
     model.eval()
     correct = 0
     total = 0
@@ -24,6 +25,7 @@ def evaluate_model(model, test_loader, device):
 
 
 def train_algorithm(model, loader, test_loader, loss_fn, optimizer, epochs, device):
+    """Generic training loop for a model."""
     best_accuracy = 0.0
     accuracies = []
     model.to(device)
@@ -50,6 +52,7 @@ def train_algorithm(model, loader, test_loader, loss_fn, optimizer, epochs, devi
     return accuracies
 
 def train_pico_epoch(pico_args, model, loader, loss_fn, loss_cont_fn, optimizer, epoch, device):
+    """Runs a single training epoch for the PiCO model."""
     model.train()
     total_loss = 0
     start_upd_prot = epoch >= pico_args['prot_start']
@@ -79,6 +82,7 @@ def train_pico_epoch(pico_args, model, loader, loss_fn, loss_cont_fn, optimizer,
     return total_loss / len(loader)
 
 def train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, device, queue, emp_dist):
+    """Runs a single training epoch for the SoLar model."""
     model.train()
     total_loss = 0
     
@@ -173,6 +177,7 @@ def train_solar_epoch(solar_args, model, loader, loss_fn, optimizer, epoch, devi
     return total_loss / len(loader)
 
 def estimate_empirical_distribution(model, loader, num_class, device):
+    """Estimates the empirical class distribution from model predictions."""
     model.eval()
     est_pred_list = []
     with torch.no_grad():
@@ -190,6 +195,7 @@ def estimate_empirical_distribution(model, loader, num_class, device):
 
 
 def train_solar(solar_args, model, loader, test_loader, loss_fn, optimizer, device, queue):
+    """Main training loop for the SoLar model, including pre-estimation and final training stages."""
     accuracies = []
     
     # Stage 1: Pre-estimation
@@ -201,7 +207,7 @@ def train_solar(solar_args, model, loader, test_loader, loss_fn, optimizer, devi
         emp_dist = solar_args['gamma1'] * emp_dist_train + (1 - solar_args['gamma1']) * emp_dist
         current_accuracy = evaluate_model(model, test_loader, device)
         print(f"Epoch [{epoch+1}/{solar_args['est_epochs']}], Loss: {avg_loss:.4f}, Test Accuracy: {current_accuracy:.2f}%")
-        # Note: accuracies from this stage are not typically used for final model selection.
+        # Accuracies from this stage are not used for final model selection.
 
     # Stage 2: Final Training
     print("\n--- SoLar Stage 2: Final Training ---")

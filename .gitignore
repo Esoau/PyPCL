@@ -1,9 +1,11 @@
-# Datasets
+# Ignore generated data and results
 data/
 plots/
 results/
-# Python bytecode
+
+# Ignore Python bytecode
 __pycache__/
 *.pyc
-# plots
+
+# Ignore plot files
 *.png

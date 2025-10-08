@@ -6,6 +6,7 @@ import math
 import copy
 
 def sinkhorn(pred, eta, r_in=None, rec=False):
+    """Sinkhorn-Knopp algorithm for matrix scaling."""
     PS = pred.detach()
     K = PS.shape[1]
     N = PS.shape[0]
@@ -13,25 +14,22 @@ def sinkhorn(pred, eta, r_in=None, rec=False):
     device = pred.device
     c = torch.ones((N, 1), device=device) / N
     r = r_in.to(device)
-    # average column mean 1/N
+    # Average column mean is 1/N.
     PS = torch.pow(PS, eta)  # K x N
     r_init = copy.deepcopy(r)
     inv_N = 1. / N
     err = 1e6
-    # error rate
+    # Initialize error for convergence check.
     _counter = 1
     for i in range(50):
         if err < 1e-1:
             break
-        r = r_init * (1 / (PS @ c))  # (KxN)@(N,1) = K x 1
-        # 1/K(Plambda * beta)
-        c_new = inv_N / (r.T @ PS).T  # ((1,K)@(KxN)).t() = N x 1
-        # 1/N(alpha * Plambda)
+        r = r_init * (1 / (PS @ c))  # Update r.
+        c_new = inv_N / (r.T @ PS).T  # Update c.
         if _counter % 10 == 0:
             err = torch.sum(c_new) + torch.sum(r)
             if torch.isnan(err):
-                # This may very rarely occur (maybe 1 in 1k epochs)
-                # So we do not terminate it, but return a relaxed solution
+                # Handle NaN case by returning a relaxed solution.
                 print('====> Nan detected, return relaxed solution')
                 pred_new = pred + 1e-5 * (pred == 0)
                 relaxed_PS, _ = sinkhorn(pred_new, eta, r_in=r_in, rec=True)
@@ -47,7 +45,7 @@ def sinkhorn(pred, eta, r_in=None, rec=False):
     return PS.detach(), False
 
 def linear_rampup(current, rampup_length):
-    """Linear rampup"""
+    """Linearly increases a value from 0 to 1 over a specified period."""
     assert current >= 0 and rampup_length >= 0
     if current >= rampup_length:
         return 1.0

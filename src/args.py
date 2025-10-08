@@ -1,30 +1,21 @@
 import argparse
 
 def parse_arguments(data_config, train_config):
-    """
-    Parses command-line arguments for the experiment.
-    
-    Args:
-        data_config (dict): Dictionary containing data generation configurations.
-        train_config (dict): Dictionary containing training configurations.
-        
-    Returns:
-        argparse.Namespace: An object containing the parsed command-line arguments.
-    """
+    """Parses command-line arguments."""
     parser = argparse.ArgumentParser(description='Generate weak labels and train models.')
     
     # Dataset selection
-    parser.add_argument('--dataset', choices=['cifar10', 'clcifar10', 'clcifar20'], default='cifar10', help='Dataset to use.')
+    parser.add_argument('--dataset', choices=['cifar10', 'cifar20', 'clcifar10', 'clcifar20'], default='cifar10', help='Dataset to use.')
 
     # Label generation arguments
-    parser.add_argument('--type', choices=['constant', 'variable'], help='Type of label generation for CIFAR-10.')
-    parser.add_argument('--value', type=float, help='Value for k (if type=constant) or q (if type=variable).')
+    parser.add_argument('--type', choices=['constant', 'variable'], help='Label generation type for CIFAR-10/20.')
+    parser.add_argument('--value', type=float, help='Value for k (constant) or q (variable).')
     
     # Noise arguments
-    parser.add_argument('--noise', choices=['noisy', 'clean'], default='clean', help='Type of noise to add for CIFAR-10.')
-    parser.add_argument('--eta', type=float, default=data_config.get('eta', 0.0), help='Noise level eta. Only used if noise is noisy.')
+    parser.add_argument('--noise', choices=['noisy', 'clean'], default='clean', help='Noise type for CIFAR-10/20.')
+    parser.add_argument('--eta', type=float, default=data_config.get('eta', 0.0), help='Noise level eta for noisy labels.')
     
-    # Training arguments from config
+    # Training arguments
     parser.add_argument('--batch_size', type=int, default=train_config['batch_size'], help='Batch size for training.')
     parser.add_argument('--epochs', type=int, default=train_config['epochs'], help='Number of training epochs.')
     parser.add_argument('--lr', type=float, default=train_config['lr'], help='Learning rate for training.')
@@ -33,11 +24,13 @@ def parse_arguments(data_config, train_config):
     
     args = parser.parse_args()
 
+    # Validate arguments for CLCIFAR datasets
     if args.dataset in ['clcifar10', 'clcifar20']:
         if args.type is not None or args.noise != 'clean':
-            parser.error(f"--type and --noise arguments are not supported for the {args.dataset} dataset.")
-    elif args.dataset == 'cifar10':
+            parser.error(f"--type and --noise are not supported for {args.dataset}.")
+    # Validate arguments for CIFAR datasets
+    elif args.dataset in ['cifar10', 'cifar20']:
         if args.type is None or args.value is None:
-            parser.error("--type and --value are required for the cifar10 dataset.")
+            parser.error(f"--type and --value are required for {args.dataset}.")
 
     return args

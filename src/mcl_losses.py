@@ -27,7 +27,7 @@ class MCL_LOG(nn.Module):
         epsilon = 1e-7
         loss = -torch.log(sum_probs_not_in_complementary_set + epsilon)
         
-        # Apply unbiased risk estimator scaling
+        # Apply unbiased risk estimator scaling.
         scaling_factor = (self.num_classes - 1) / (self.num_classes - num_complementary)
         scaled_loss = scaling_factor * loss
         
@@ -55,10 +55,10 @@ class MCL_MAE(nn.Module):
         mask_non_complementary = ~mask_complementary
         sum_probs_not_in_complementary_set = (probs_all * mask_non_complementary.float()).sum(dim=1)
         
-        # MAE Loss is 1 - sum of non-complementary probabilities
+        # MAE Loss is 1 - sum of non-complementary probabilities.
         loss = 1.0 - sum_probs_not_in_complementary_set
 
-        # Apply unbiased risk estimator scaling
+        # Apply unbiased risk estimator scaling.
         scaling_factor = (self.num_classes - 1) / (self.num_classes - num_complementary)
         scaled_loss = scaling_factor * loss
         
@@ -86,10 +86,10 @@ class MCL_EXP(nn.Module):
         mask_non_complementary = ~mask_complementary
         sum_probs_not_in_complementary_set = (probs_all * mask_non_complementary.float()).sum(dim=1)
         
-        # EXP Loss is exp(-sum of non-complementary probabilities)
+        # EXP Loss is exp(-sum of non-complementary probabilities).
         loss = torch.exp(-sum_probs_not_in_complementary_set)
 
-        # Apply unbiased risk estimator scaling
+        # Apply unbiased risk estimator scaling.
         scaling_factor = (self.num_classes - 1) / (self.num_classes - num_complementary)
         scaled_loss = scaling_factor * loss
         

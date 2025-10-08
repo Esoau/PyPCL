@@ -17,7 +17,7 @@ from src.args import parse_arguments
 from src.saving import save_accuracies_to_csv
 
 def main():
-    # Configuration and Argument Parsing
+    # Load config and parse arguments
     with open('config.yaml', 'r') as f:
         config = yaml.safe_load(f)
     args = parse_arguments(config['data_generation'], config['training'])
@@ -25,16 +25,16 @@ def main():
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
 
-    # Data Preparation
+    # Prepare datasets and dataloaders
     pl_dataset_raw, cl_dataset_raw, original_targets = prepare_datasets(args, config['data_generation'], config['training'])
     loaders, solar_train_dataset = get_dataloaders(args, config['data_generation'], pl_dataset_raw, cl_dataset_raw, original_targets)
 
-    if args.dataset == 'clcifar20':
+    if args.dataset in ['clcifar20', 'cifar20']:
         config['training']['num_classes'] = 20
     else:
         config['training']['num_classes'] = 10
         
-    # Accuracy tracking
+    # Dictionary to store accuracies for each model
     all_accuracies = {
         'PRODEN': [], 'MCL-LOG': [], 'MCL-MAE': [], 'MCL-EXP': [], 'PiCO': [], 'SoLar': []
     }
@@ -66,11 +66,11 @@ def main():
     all_accuracies['SoLar'] = run_solar_training(args, loaders, config['training'], config['solar'], solar_train_dataset, DEVICE)
     save_accuracy_plot(all_accuracies, epochs_range, args, project_root)
     
-    # Final Cleanup
+    # Clean up memory
     del loaders, pl_dataset_raw, cl_dataset_raw, original_targets, solar_train_dataset
     gc.collect()
 
-    # Final Results
+    # Print final results
     print("\nFinal Results")
     for name, accs in all_accuracies.items():
         if accs:

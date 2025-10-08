@@ -9,12 +9,14 @@ from src.pico.utils_loss import PartialLoss, SupConLoss
 from src.solar.utils_loss import partial_loss as solar_partial_loss
 
 def setup_proden(args, train_config):
+    """Initializes model, loss, and optimizer for PRODEN."""
     model = create_model(train_config['num_classes'])
     loss = proden()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     return model, loss, optimizer
 
 def setup_mcl(args, train_config, loss_type='log'):
+    """Initializes model, loss, and optimizer for MCL."""
     model = create_model(train_config['num_classes'])
     if loss_type == 'log':
         loss = MCL_LOG(num_classes=train_config['num_classes'])
@@ -28,6 +30,7 @@ def setup_mcl(args, train_config, loss_type='log'):
     return model, loss, optimizer
 
 def setup_pico(args, train_config, pico_config, pico_train_dataset, device):
+    """Initializes model, losses, and optimizer for PiCO."""
     pico_args = {
         'num_class': train_config['num_classes'], 'epochs': args.epochs, 'low_dim': pico_config['low_dim'],
         'moco_queue': pico_config['moco_queue'], 'moco_m': pico_config['moco_m'], 'proto_m': pico_config['proto_m'],
@@ -45,6 +48,7 @@ def setup_pico(args, train_config, pico_config, pico_train_dataset, device):
     return model, (cls_loss, cont_loss), optimizer, pico_args
 
 def setup_solar(args, train_config, solar_config, solar_train_dataset, device):
+    """Initializes model, loss, and optimizer for SoLar."""
     solar_args = {
         'num_class': train_config['num_classes'], 'epochs': args.epochs, 'warmup_epoch': solar_config['warmup_epoch'],
         'rho_range': solar_config['rho_range'], 'lamd': solar_config['lamd'], 'eta': solar_config['eta'],

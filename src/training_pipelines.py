@@ -3,6 +3,7 @@ import gc
 from src.engine import train_algorithm, evaluate_model, train_pico_epoch, train_solar
 
 def run_proden_training(args, loaders, train_config, device):
+    """Runs the training pipeline for the PRODEN model."""
     from src.model_setup import setup_proden
     print("\nTraining PRODEN (PL)")
     model, loss, optimizer = setup_proden(args, train_config)
@@ -12,6 +13,7 @@ def run_proden_training(args, loaders, train_config, device):
     return accuracies
 
 def run_mcl_training(args, loaders, train_config, device, loss_type='log'):
+    """Runs the training pipeline for the MCL model."""
     from src.model_setup import setup_mcl
     print(f"\nTraining MCL-{loss_type.upper()} (CL)")
     model, loss, optimizer = setup_mcl(args, train_config, loss_type)
@@ -21,6 +23,7 @@ def run_mcl_training(args, loaders, train_config, device, loss_type='log'):
     return accuracies
 
 def run_pico_training(args, loaders, train_config, pico_config, pl_dataset_raw, original_targets, device):
+    """Runs the training pipeline for the PiCO model."""
     from src.model_setup import setup_pico
     from src.data_utils import PicoDataset
     print("\nTraining PiCO (PL)")
@@ -45,6 +48,7 @@ def run_pico_training(args, loaders, train_config, pico_config, pl_dataset_raw, 
     return accuracies
 
 def run_solar_training(args, loaders, train_config, solar_config, solar_train_dataset, device):
+    """Runs the training pipeline for the SoLar model."""
     from src.model_setup import setup_solar
     print("\nTraining SoLar (PL)")
     model, loss_fn, optimizer, solar_args, queue = setup_solar(args, train_config, solar_config, solar_train_dataset, device)

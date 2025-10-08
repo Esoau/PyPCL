@@ -22,11 +22,13 @@ class PiCOModel(nn.Module):
 
     @torch.no_grad()
     def _momentum_update_key_encoder(self, args):
+        """Momentum update of the key encoder."""
         for param_q, param_k in zip(self.encoder_q.parameters(), self.encoder_k.parameters()):
             param_k.data = param_k.data * args['moco_m'] + param_q.data * (1. - args['moco_m'])
 
     @torch.no_grad()
     def _dequeue_and_enqueue(self, keys, labels, args):
+        """Update the queue of features and pseudo-labels."""
         batch_size = keys.shape[0]
         ptr = int(self.queue_ptr)
         assert args['moco_queue'] % batch_size == 0

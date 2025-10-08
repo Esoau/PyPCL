@@ -7,9 +7,9 @@ from torchvision import transforms
 from src.pico.randaugment import RandomAugment
 import copy
 
-    
+
 class WeaklySupervisedDataset(Dataset):
-    def __init__(self, data, targets, transform=None): # Add transform
+    def __init__(self, data, targets, transform=None):
         self.data = data
         self.targets = targets
         self.transform = transform
@@ -37,15 +37,13 @@ class ComparisonDataGenerator:
 
     def _apply_noise(self, candidate_set, true_label):
         if self.noise_type == 'noisy' and np.random.rand() < self.eta:
-            # Ensure candidate_set is a mutable set for easy removal
+            # Remove true label from candidate set to introduce noise.
             candidate_set_mutable = set(candidate_set)
             if true_label in candidate_set_mutable:
                 candidate_set_mutable.remove(true_label)
             
-            # If the set becomes empty, regenerate until it's not
+            # If the set becomes empty, add a random incorrect label.
             while not candidate_set_mutable:
-                # This is a simple way to regenerate: add a random label.
-                # A more sophisticated approach might be needed depending on desired properties.
                 incorrect_labels = np.delete(self.all_labels, true_label)
                 random_label = np.random.choice(incorrect_labels)
                 candidate_set_mutable.add(random_label)
@@ -66,7 +64,7 @@ class ComparisonDataGenerator:
             )
             candidate_set = np.append(additional_candidates, true_label)
             
-            # Apply noise if specified
+            # Apply noise if specified.
             candidate_set = self._apply_noise(candidate_set, true_label)
 
             candidate_set.sort()
@@ -105,12 +103,12 @@ class ComparisonDataGenerator:
                 if np.random.rand() < q:
                     pl_set.add(label)
             
-            # Apply noise if specified
+            # Apply noise if specified.
             pl_set_array = self._apply_noise(np.array(list(pl_set)), true_label)
             pl_target = sorted(list(pl_set_array))
             pl_targets.append(torch.tensor(pl_target, dtype=torch.long))
 
-            # Generate CL dataset from the (potentially noisy) PL set
+            # Generate CL dataset from the (potentially noisy) PL set.
             cl_set = set(all_labels) - set(pl_target)
             cl_target = sorted(list(cl_set))
             cl_targets.append(torch.tensor(cl_target, dtype=torch.long))
@@ -129,10 +127,15 @@ class PicoDataset(Dataset):
         
         self.num_classes = len(set(original_labels.numpy()))
         
+        # Weak and strong augmentations for contrastive learning.
         self.weak_transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
             transforms.RandomHorizontalFlip(),
+            transforms.RandomApply([
+                transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
+            ], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
             transforms.ToTensor(),
             transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.2435, 0.2616])
         ])
@@ -140,7 +143,7 @@ class PicoDataset(Dataset):
             transforms.ToPILImage(),
             transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
             transforms.RandomHorizontalFlip(),
-            RandomAugment(n=2, m=10),
+            RandomAugment(n=3, m=5),
             transforms.ToTensor(),
             transforms.Normalize([0.4914, 0.4822, 0.4465], [0.247, 0.2435, 0.2616])
         ])
@@ -153,7 +156,7 @@ class PicoDataset(Dataset):
         each_image_w = self.weak_transform(image)
         each_image_s = self.strong_transform(image)
         
-        # Generate the one-hot encoded partial label vector on-the-fly
+        # Create one-hot encoded partial label vector.
         p_label = self.given_label_matrix_sparse[index]
         each_label = torch.zeros(self.num_classes, dtype=torch.float)
         each_label[p_label] = 1.0
@@ -186,7 +189,7 @@ class SoLarDataset(Dataset):
         each_image_w = self.weak_transform(image)
         each_image_s = self.strong_transform(image)
 
-        # Generate the one-hot encoded partial label vector on-the-fly
+        # Create one-hot encoded partial label vector.
         p_label = self.given_label_matrix_sparse[index]
         each_label = torch.zeros(self.num_classes, dtype=torch.float)
         each_label[p_label] = 1.0

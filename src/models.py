@@ -6,11 +6,11 @@ class ResNet18(nn.Module):
         super().__init__()
         self.resnet = models.resnet18(num_classes=num_classes, weights=None)
         
-        # modify the first convolutional layer for small images
+        # Modify the first convolutional layer for small images (e.g., CIFAR).
         self.resnet.conv1 = nn.Conv2d(
             3, 64, kernel_size=3, stride=1, padding=1, bias=False
         )
-        # re-initialize the weights of the new layer
+        # Re-initialize the weights of the modified layer.
         nn.init.kaiming_normal_(
             self.resnet.conv1.weight, mode="fan_out", nonlinearity="relu"
         )
@@ -19,5 +19,6 @@ class ResNet18(nn.Module):
         return self.resnet(x)
     
 def create_model(num_classes):
+    """Creates a ResNet-18 model."""
     model = ResNet18(num_classes=num_classes)
     return model

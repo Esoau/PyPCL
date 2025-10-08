@@ -6,15 +6,7 @@ import pickle
 import gdown
 
 class CLCIFAR10(Dataset):
-    """CLCIFAR10 training set
-
-    The training set of CIFAR10 with human annotated complementary labels.
-    Containing 50000 samples, each with one ordinary label and three complementary labels
-
-    Args:
-        root: the path to store the dataset
-        transform: feature transformation function
-    """
+    """CLCIFAR10 training set with human-annotated complementary labels."""
     def __init__(self, root="./data", transform=None):
 
         os.makedirs(os.path.join(root, 'clcifar10'), exist_ok=True)
@@ -45,15 +37,7 @@ class CLCIFAR10(Dataset):
         return image, self.targets[index]
 
 class CLCIFAR20(Dataset):
-    """CLCIFAR20 training set
-
-    The training set of CIFAR20 with human annotated complementary labels.
-    Containing 50000 samples, each with one ordinary label and the first one of the three complementary labels
-
-    Args:
-        root: the path to store the dataset
-        transform: feature transformation function
-    """
+    """CLCIFAR20 training set with human-annotated complementary labels."""
     def __init__(self, root="./data", transform=None):
 
         os.makedirs(os.path.join(root, 'clcifar20'), exist_ok=True)

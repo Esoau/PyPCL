@@ -87,10 +87,7 @@ class ResNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-        # Zero-initialize the last BN in each residual branch,
-        # so that the residual branch starts with zeros, and each residual block behaves
-        # like an identity. This improves the model by 0.2~0.3% according to:
-        # https://arxiv.org/abs/1706.02677
+        # Zero-initialize the last BN in each residual branch.
         if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, Bottleneck):
@@ -103,7 +100,7 @@ class ResNet(nn.Module):
         layers = []
         for i in range(num_blocks):
             stride = strides[i]
-            is_last = (i == num_blocks - 1)  # Last block in the layer
+            is_last = (i == num_blocks - 1)
             layers.append(block(self.in_planes, planes, stride, is_last))
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
@@ -144,7 +141,7 @@ model_dict = {
 
 
 class LinearBatchNorm(nn.Module):
-    """Implements BatchNorm1d by BatchNorm2d, for SyncBN purpose"""
+    """Implements BatchNorm1d via BatchNorm2d for SyncBN."""
     def __init__(self, dim, affine=True):
         super(LinearBatchNorm, self).__init__()
         self.dim = dim
@@ -166,12 +163,12 @@ class Identity(nn.Module):
 
 
 class SupConResNet(nn.Module):
-    """backbone + projection head"""
+    """ResNet backbone with a projection head for supervised contrastive learning."""
     def __init__(self, name='resnet18', head='mlp', feat_dim=128, num_class=10):
         super(SupConResNet, self).__init__()
         model_fun, dim_in = models.resnet18, 512
         self.encoder = model_fun(num_classes=num_class)
-        # Adapt for CIFAR-10
+        # Adapt for CIFAR-10.
         self.encoder.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.encoder.maxpool = nn.Identity()
         
