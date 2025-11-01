@@ -1,6 +1,7 @@
 # Required Python packages for this project.
-torch
-torchvision
+# older torch versions for v100 capability
+torch==1.13.1+cu117
+torchvision==0.14.1+cu117
 PyYAML
 tqdm
 numpy
