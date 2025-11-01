@@ -63,7 +63,7 @@ python scripts/run_experiment.py --dataset cifar10 --type constant --value 2 --n
 
 **Example 2:**
 
-Example 2: CIFAR-20 with Variable Labels and Noise Run all algorithms on CIFAR-20. First, 20% label noise is applied to the ground truth. Then, partial labels are generated where each false label has a 50% probability of being included in the candidate set.
+CIFAR-20 with Variable Labels and Noise Run all algorithms on CIFAR-20. First, 20% label noise is applied to the ground truth. Then, partial labels are generated where each false label has a 50% probability of being included in the candidate set.
 
 ```bash
 python scripts/run_experiment.py --dataset cifar20 --type variable --value 0.5 --noise noisy --eta 0.2
